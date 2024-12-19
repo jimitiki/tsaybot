@@ -1,6 +1,8 @@
+import asyncio
+
 from discord import Client, DMChannel, Intents, Message
 
-import emoji
+import scanner
 
 class Bot(Client):
 
@@ -21,3 +23,8 @@ class Bot(Client):
 			print(f'A DM from my creator: {message.content}')
 		if message.channel.id == self.vote_channel_id:
 			print(f'A message in the vote channel: {message.content}')
+			asyncio.gather(*(
+				asyncio.create_task(message.add_reaction(emoji))
+				for emoji in scanner.find_emoji(message.content)
+			))
+

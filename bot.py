@@ -30,12 +30,15 @@ class Bot(Client):
 		if isinstance(message.channel, DMChannel) and message.author.id == 329839605857910785:
 			logger.info(f'DM from my creator: «{message.content}»')
 		if message.channel.id == self.vote_channel_id:
-			logger.info(f'New message in the vote channel: «{message.content}»')
-			emoji = list(scanner.find_emoji(message.content))
-			logger.debug(f'Extracted emoji: [{", ".join(str(e) for e in emoji)}]')
-			asyncio.gather(*(
-				asyncio.create_task(message.add_reaction(e), name = f'add reaction: {e!s}')
-				for e in emoji
-			))
+			await self.handle_ballot(message)
 
+	async def handle_ballot(self, message: Message):
+		"""Processes a message in the voting channel"""
 
+		logger.info(f'New message in the vote channel: «{message.content}»')
+		emoji = list(scanner.find_emoji(message.content))
+		logger.debug(f'Extracted emoji: [{", ".join(str(e) for e in emoji)}]')
+		asyncio.gather(*(
+			asyncio.create_task(message.add_reaction(e), name = f'add reaction: {e!s}')
+			for e in emoji
+		))

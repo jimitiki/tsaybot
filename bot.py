@@ -38,7 +38,6 @@ class Bot(Client):
 		logger.info(f'New message in the vote channel: «{message.content}»')
 		emoji = list(scanner.find_emoji(message.content))
 		logger.debug(f'Extracted emoji: [{", ".join(str(e) for e in emoji)}]')
-		asyncio.gather(*(
-			asyncio.create_task(message.add_reaction(e), name = f'add reaction: {e!s}')
-			for e in emoji
-		))
+		async with asyncio.TaskGroup() as tg:
+			for e in emoji:
+				tg.create_task(message.add_reaction(e), name = f'add reaction: {emoji!s}')

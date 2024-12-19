@@ -1,8 +1,16 @@
 import asyncio
+import logging
 
 from discord import Client, DMChannel, Intents, Message
 
 import scanner
+
+logger = logging.getLogger('bot')
+logger.setLevel(logging.DEBUG)
+handler = logging.FileHandler('bot.log')
+formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {message} (task: {taskName})', style = '{')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 class Bot(Client):
 
@@ -10,7 +18,7 @@ class Bot(Client):
 		intents = Intents.default()
 		intents.message_content = True
 		super().__init__(intents = intents)
-		self.guild_d = guild_id
+		self.guild_id = guild_id
 		self.vote_channel_id = vote_channel_id
 		self.announce_channel_id = announce_channel_id
 
@@ -20,11 +28,14 @@ class Bot(Client):
 	async def on_message(self, message: Message):
 
 		if isinstance(message.channel, DMChannel) and message.author.id == 329839605857910785:
-			print(f'A DM from my creator: {message.content}')
+			logger.info(f'DM from my creator: «{message.content}»')
 		if message.channel.id == self.vote_channel_id:
-			print(f'A message in the vote channel: {message.content}')
+			logger.info(f'New message in the vote channel: «{message.content}»')
+			emoji = list(scanner.find_emoji(message.content))
+			logger.debug(f'Extracted emoji: [{", ".join(str(e) for e in emoji)}]')
 			asyncio.gather(*(
-				asyncio.create_task(message.add_reaction(emoji))
-				for emoji in scanner.find_emoji(message.content)
+				asyncio.create_task(message.add_reaction(e), name = f'add reaction: {e!s}')
+				for e in emoji
 			))
+
 

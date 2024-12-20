@@ -5,7 +5,7 @@ from bot import Bot
 
 with open ('./config.json') as config_file:
 	env = json.load(config_file)['default']
-bot = Bot(env['server'], env['vote_channel'], env['announce_channel'])
+bot = Bot(env['server'], env['vote_channel'], env['announce_channel'], env['voice_channel'])
 
 log_handler = logging.FileHandler('discord.log')	# Logs exclusively emitted by the discord.py library
 with open('./token.txt') as token_file:

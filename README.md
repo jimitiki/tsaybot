@@ -4,7 +4,7 @@ In order to connect the bot to Discord, the bot's token must be stored in `token
 
 # Configuration
 
-The bot must be instantiated with a Server ID (the server where events will be created) and two Channel IDs: one for the channel where voting takes place, and the other for the channel where announcements are made. These IDs are specified in the `config.json` file, which is structured as follows:
+The bot must be instantiated with a Server ID (the server where events will be created) and three Channel IDs: one for the channel where voting takes place, one for the channel where announcements are made, and one for the voice channel where events will be scheduled. These IDs are specified in the `config.json` file, which is structured as follows:
 
 
 ```
@@ -13,6 +13,7 @@ The bot must be instantiated with a Server ID (the server where events will be c
 		"server": <Server ID>,
 		"vote_channel": <voting Channel ID>,
 		"announce_channel": <announcement Channel ID>,
+		"voice_channel": <voice Channel ID>
 	}
 }
 ```

@@ -10,9 +10,9 @@ The bot must be instantiated with a Server ID (the server where events will be c
 ```
 {
 	"default": {
-		"server_id": <Server ID>,
-		"vote_channel_id": <voting Channel ID>,
-		"announce_channel_id": <announcement Channel ID>,
+		"server": <Server ID>,
+		"vote_channel": <voting Channel ID>,
+		"announce_channel": <announcement Channel ID>,
 	}
 }
 ```

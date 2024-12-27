@@ -5,7 +5,8 @@ import logging
 import sys
 
 from bs4 import BeautifulSoup
-from discord import Client, DMChannel, Guild, Intents, Message, PrivacyLevel
+from discord import Client, DMChannel, EventStatus, Guild, Intents, Message, PrivacyLevel
+from discord.abc import Messageable
 import requests
 
 import scanner
@@ -30,13 +31,44 @@ class Bot(Client):
 		self.vote_channel_id = vote_channel_id
 		self.announce_channel_id = announce_channel_id
 		self.voice_channel_id = voice_channel_id
+		self.reminder_task = None
 
 	@property
-	def guild(self) -> Guild | None:
-		return self.get_guild(self.guild_id)
+	def guild(self) -> Guild:
+		guild = self.get_guild(self.guild_id)
+		if guild is None:
+			raise RuntimeError('Failed to access Guild. Either the Guild does not exist or the Client is not completely ready.')
+		return guild
+
+	def get_channel(self, channel_id: int, /):
+
+		channel = super().get_channel(channel_id)
+		if channel is None:
+			raise RuntimeError(f'Failed to access Channel with ID {channel_id}. Either the Channel does not exist or the Client is not completely ready.')
+		if not isinstance(channel, Messageable):
+			raise RuntimeError(f'Channel with ID {channel_id} does not support messages.')
+		return channel
 
 	async def on_ready(self):
+
 		print('Talking shit...')
+
+		# If the reminder task is already defined, don't bother creating a new one or doing reminders right now; they will happen at the designated time.
+		if self.reminder_task:
+			return
+		self.reminder_task = asyncio.create_task(self.run_reminders())
+		await asyncio.create_task(self.send_reminders())
+
+	async def run_reminders(self):
+
+		ten_am_tomorrow = datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=1), datetime.time(10), tzinfo = NY_TZ)
+		delay = (ten_am_tomorrow - datetime.datetime.now(NY_TZ)).total_seconds()
+		logger.info(f'Waiting for {delay} seconds')
+		await asyncio.sleep(delay)
+		logger.info('Finished waiting')
+		await self.wait_until_ready()
+		await self.send_reminders()
+		self.reminder_task = asyncio.create_task(self.run_reminders())
 
 	async def on_message(self, message: Message):
 
@@ -131,4 +163,49 @@ class Bot(Client):
 		with open('events.txt', 'a') as events_file:
 			print(f'{event.id},{film_title},2', file=events_file)
 
+	async def send_reminders(self):
 
+		logger.info('Sending reminders')
+		with open('events.txt') as events_file:
+			events = [
+				line.strip().split(',')
+				for line in events_file.readlines()
+			]
+		async with asyncio.TaskGroup() as tg:
+			tasks = [
+				tg.create_task(self.remind_event(event_id, film_title, number))
+				for event_id, film_title, number in events
+			]
+
+		with open('events.txt', 'w') as events_file:
+			for event_id, film_title, number in asyncio.gather(*tasks):
+				print(f'{event_id},{film_title},{number}', file=events_file)
+		logger.info('Reminders completed')
+
+	async def remind_event(self, event_id: str, film_title: str, number: str) -> tuple[str,str,str] | None:
+
+		event = await self.guild.fetch_scheduled_event(int(event_id))
+		if event.status is not EventStatus.scheduled:
+			logger.debug(f'Skipping event with ID {event_id} due to its status: {event.status}')
+			return None
+		if not event.channel or event.channel.id != self.voice_channel_id:
+			logger.debug(f'Skipping event with ID {event_id} that is not for the voice channel')
+			return event_id, film_title, number
+
+		time_remaining = event.start_time.date() - datetime.date.today()
+
+		# Reminder on the day of the event
+		if time_remaining.days == 0:
+			logger.info(f'Announcing day-of reminder for event with ID {event_id}')
+			await self.get_channel(self.announce_channel_id).send(f'<@&1298872652366221312> We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {film_title}.')
+			return None
+
+		# Reminder 2 (or 1) day(s) before the event
+		if number == '2' and time_remaining.days <= 2:
+			logger.info(f'Announcing 2-day reminder for event with ID {event_id}')
+			await self.get_channel(self.announce_channel_id).send(f'<@&1298872652366221312> We will be meeting on {event.start_time.strftime('%A')} to discuss {film_title}.')
+			return event_id, film_title, '1'
+
+		else:
+			logger.debug(f'Skipping event at {event.start_time.isoformat()}')
+			return event_id, film_title, number

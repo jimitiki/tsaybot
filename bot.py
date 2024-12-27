@@ -30,7 +30,6 @@ class Bot(Client):
 		self.vote_channel_id = vote_channel_id
 		self.announce_channel_id = announce_channel_id
 		self.voice_channel_id = voice_channel_id
-		self.bg_tasks = set()
 
 	@property
 	def guild(self) -> Guild | None:
@@ -125,19 +124,11 @@ class Bot(Client):
 			return
 		logger.info(f'Created event (ID={event.id})')
 
-		await self.launch_task(
-			self.get_channel(self.announce_channel_id).send(
-				f'<@&1298872652366221312> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')}'
-				f' to discuss {film_title}. As always, attendance is optional.'
-			)
+		await self.get_channel(self.announce_channel_id).send(
+			f'<@&1298872652366221312> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')} to discuss {film_title}. As always, attendance is optional.'
 		)
 
 		with open('events.txt', 'a') as events_file:
 			print(f'{event.id},{film_title},2', file=events_file)
 
-	async def launch_task(self, coro):
-		"""Starts the task and ensures that it will not be garbarge collected until it finishes."""
 
-		task = asyncio.create_task(coro)
-		self.bg_tasks.add(task)
-		task.add_done_callback(self.bg_tasks.discard)

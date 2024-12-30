@@ -163,4 +163,5 @@ cython_debug/
 
 # Local files
 *.txt
+!requirements.txt
 config.json

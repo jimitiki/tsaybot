@@ -143,7 +143,7 @@ class Bot(Client):
 		date = datetime.date.today() + datetime.timedelta(days=14 - (datetime.date.today().weekday() - 2))
 		kwargs = {
 			'name': f'TSAY: {film_title}{(" (" + release_year + ")") if release_year else ""}',
-			'start_time': datetime.datetime.combine(date, datetime.time(10), NY_TZ),
+			'start_time': datetime.datetime.combine(date, datetime.time(22), NY_TZ),
 			'channel': self.get_channel(self.voice_channel_id),
 			'privacy_level': PrivacyLevel.guild_only,
 		}

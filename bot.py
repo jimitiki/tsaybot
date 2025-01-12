@@ -178,9 +178,11 @@ class Bot(Client):
 				for event_id, film_title, number in events
 			]
 
+		results = await asyncio.gather(*tasks)
 		with open('events.txt', 'w') as events_file:
-			for event_id, film_title, number in asyncio.gather(*tasks):
-				print(f'{event_id},{film_title},{number}', file=events_file)
+			for result in results:
+				if result:
+					print(','.join(result), file=events_file)
 		logger.info('Reminders completed')
 
 	async def remind_event(self, event_id: str, film_title: str, number: str) -> tuple[str,str,str] | None:

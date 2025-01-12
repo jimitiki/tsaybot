@@ -193,20 +193,22 @@ class Bot(Client):
 			logger.debug(f'Skipping event with ID {event_id} that is not for the voice channel')
 			return event_id, film_title, number
 
-		time_remaining = event.start_time.date() - datetime.date.today()
+		start_time = event.start_time.astimezone(NY_TZ)
+		time_remaining = start_time - datetime.datetime.now(NY_TZ)
+		logger.info(f'Event with ID {event_id} at {start_time.isoformat()} in {time_remaining.days} days')
 
 		# Reminder on the day of the event
 		if time_remaining.days == 0:
-			logger.info(f'Announcing day-of reminder for event with ID {event_id}')
+			logger.info(f'Announcing day-of reminder for event with ID {event_id} at {start_time.isoformat()}')
 			await self.get_channel(self.announce_channel_id).send(f'<@&{self.role_id}> We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {film_title}.')
 			return None
 
 		# Reminder 2 (or 1) day(s) before the event
 		if number == '2' and time_remaining.days <= 2:
-			logger.info(f'Announcing 2-day reminder for event with ID {event_id}')
+			logger.info(f'Announcing 2-day reminder for event with ID {event_id} at {start_time.isoformat()}')
 			await self.get_channel(self.announce_channel_id).send(f'<@&{self.role_id}> We will be meeting on {start_time.strftime('%A')} to discuss {film_title}.')
 			return event_id, film_title, '1'
 
 		else:
-			logger.debug(f'Skipping event at {event.start_time.isoformat()}')
+			logger.debug(f'Skipping event at {start_time.isoformat()}')
 			return event_id, film_title, number

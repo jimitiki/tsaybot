@@ -23,7 +23,7 @@ NY_TZ = ZoneInfo('America/New_York')
 
 class Bot(Client):
 
-	def __init__(self, guild_id: int, vote_channel_id: int, announce_channel_id: int, voice_channel_id: int):
+	def __init__(self, guild_id: int, vote_channel_id: int, announce_channel_id: int, voice_channel_id: int, role_id: int):
 		intents = Intents.default()
 		intents.message_content = True
 		super().__init__(intents = intents)
@@ -32,6 +32,7 @@ class Bot(Client):
 		self.announce_channel_id = announce_channel_id
 		self.voice_channel_id = voice_channel_id
 		self.reminder_task = None
+		self.role_id = role_id
 
 	@property
 	def guild(self) -> Guild:
@@ -157,7 +158,7 @@ class Bot(Client):
 		logger.info(f'Created event (ID={event.id})')
 
 		await self.get_channel(self.announce_channel_id).send(
-			f'<@&1298872652366221312> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')} to discuss {film_title}. As always, attendance is optional.'
+			f'<@&{self.role_id}> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')} to discuss {film_title}. As always, attendance is optional.'
 		)
 
 		with open('events.txt', 'a') as events_file:
@@ -197,13 +198,13 @@ class Bot(Client):
 		# Reminder on the day of the event
 		if time_remaining.days == 0:
 			logger.info(f'Announcing day-of reminder for event with ID {event_id}')
-			await self.get_channel(self.announce_channel_id).send(f'<@&1298872652366221312> We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {film_title}.')
+			await self.get_channel(self.announce_channel_id).send(f'<@&{self.role_id}> We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {film_title}.')
 			return None
 
 		# Reminder 2 (or 1) day(s) before the event
 		if number == '2' and time_remaining.days <= 2:
 			logger.info(f'Announcing 2-day reminder for event with ID {event_id}')
-			await self.get_channel(self.announce_channel_id).send(f'<@&1298872652366221312> We will be meeting on {event.start_time.strftime('%A')} to discuss {film_title}.')
+			await self.get_channel(self.announce_channel_id).send(f'<@&{self.role_id}> We will be meeting on {start_time.strftime('%A')} to discuss {film_title}.')
 			return event_id, film_title, '1'
 
 		else:

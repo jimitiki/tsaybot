@@ -11,7 +11,7 @@ def main(config_path: io.TextIOWrapper):
 @click.option('--config', 'config_file', envvar='TSAYBOT_CONFIG_PATH', default='config.json', type=click.File())
 def main(config_file: io.TextIOWrapper):
 
-	config = json.load(config_file)['default']
+	config = json.load(config_file)
 	bot = Bot(config['server'], config['vote_channel'], config['announce_channel'], config['voice_channel'], config['role'])
 
 	log_handler = logging.FileHandler('discord.log')	# Logs exclusively emitted by the discord.py library

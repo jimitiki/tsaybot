@@ -6,7 +6,7 @@ import pathlib
 import sys
 
 from bs4 import BeautifulSoup
-from discord import Client, DMChannel, EventStatus, Guild, Intents, Message, PrivacyLevel, NotFound
+from discord import Client, EventStatus, Guild, Intents, Message, PrivacyLevel, NotFound
 from discord.abc import Messageable
 import requests
 
@@ -19,13 +19,24 @@ NY_TZ = ZoneInfo('America/New_York')
 
 class Bot(Client):
 
-	def __init__(self, guild_id: int, vote_channel_id: int, announce_channel_id: int, voice_channel_id: int, role_id: int, events_dir: pathlib.Path):
+	def __init__(
+		self,
+		guild_id: int,
+		vote_channel_id: int,
+		announce_channel_id: int,
+		voice_channel_id: int,
+		control_channel_id: int,
+		role_id: int,
+		events_dir: pathlib.Path
+	):
 		intents = Intents.default()
 		intents.message_content = True
 		super().__init__(intents = intents)
 
 		if not guild_id:
 			raise ValueError('No Guild ID provided.')
+		if not control_channel_id:
+			raise ValueError('No control Channel ID provided.')
 		if not vote_channel_id:
 			raise ValueError('No vote Channel ID provided.')
 		if not announce_channel_id:
@@ -36,6 +47,7 @@ class Bot(Client):
 			raise ValueError('No role ID provided.')
 
 		self.guild_id = guild_id
+		self.control_channel_id = control_channel_id
 		self.vote_channel_id = vote_channel_id
 		self.announce_channel_id = announce_channel_id
 		self.voice_channel_id = voice_channel_id

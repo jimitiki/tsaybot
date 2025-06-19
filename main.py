@@ -33,11 +33,11 @@ def main(
 
 	discord_cfg = config.get('discord', {})
 	bot = Bot(
-		discord_cfg['server'],
-		discord_cfg['vote_channel'],
-		discord_cfg['announce_channel'],
-		discord_cfg['voice_channel'],
-		discord_cfg['role'],
+		discord_cfg.get('server'),
+		discord_cfg.get('vote_channel'),
+		discord_cfg.get('announce_channel'),
+		discord_cfg.get('voice_channel'),
+		discord_cfg.get('role'),
 		events_dir,
 	)
 

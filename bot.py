@@ -23,6 +23,18 @@ class Bot(Client):
 		intents = Intents.default()
 		intents.message_content = True
 		super().__init__(intents = intents)
+
+		if not guild_id:
+			raise ValueError('No Guild ID provided.')
+		if not vote_channel_id:
+			raise ValueError('No vote Channel ID provided.')
+		if not announce_channel_id:
+			raise ValueError('No announce Channel ID provided.')
+		if not voice_channel_id:
+			raise ValueError('No voice Channel ID provided.')
+		if not role_id:
+			raise ValueError('No role ID provided.')
+
 		self.guild_id = guild_id
 		self.vote_channel_id = vote_channel_id
 		self.announce_channel_id = announce_channel_id

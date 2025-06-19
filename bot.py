@@ -94,8 +94,8 @@ class Bot(Client):
 
 	async def on_message(self, message: Message):
 
-		if isinstance(message.channel, DMChannel) and message.author.id == 329839605857910785:
-			await self.handle_dm(message)
+		if message.channel.id == self.control_channel_id:
+			await self.handle_command(message)
 		if message.channel.id == self.vote_channel_id:
 			await self.handle_ballot(message)
 
@@ -109,13 +109,17 @@ class Bot(Client):
 			for e in emoji:
 				tg.create_task(message.add_reaction(e), name = f'add reaction: {emoji!s}')
 
-	async def handle_dm(self, message: Message):
-		"""Processes a direct message"""
+	async def handle_command(self, message: Message):
+		"""Processes a command in the control channel"""
 
-		logger.debug(f'DM from my creator: «{message.content}»')
-		content = message.content.strip()
+		if self.user not in message.mentions:
+			logger.info('Skipping message that does not @ mention bot')
+			return
+
+		logger.debug(f'Control message: «{message.content}»')
+		content = message.content.strip().partition(' ')[2].strip()
 		if not scanner.is_url(content):
-			logger.warning('DM did not contain a URL')
+			logger.warning('Control message did not contain a URL')
 			await message.channel.send('Invalid URL')
 			return
 

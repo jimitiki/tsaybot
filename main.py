@@ -1,3 +1,4 @@
+import io
 import json
 import logging
 
@@ -6,11 +7,12 @@ import click
 from bot import Bot
 
 @click.command()
-def main():
+def main(config_path: io.TextIOWrapper):
+@click.option('--config', 'config_file', envvar='TSAYBOT_CONFIG_PATH', default='config.json', type=click.File())
+def main(config_file: io.TextIOWrapper):
 
-	with open('./config.json') as config_file:
-		env = json.load(config_file)['default']
-	bot = Bot(env['server'], env['vote_channel'], env['announce_channel'], env['voice_channel'], env['role'])
+	config = json.load(config_file)['default']
+	bot = Bot(config['server'], config['vote_channel'], config['announce_channel'], config['voice_channel'], config['role'])
 
 	log_handler = logging.FileHandler('discord.log')	# Logs exclusively emitted by the discord.py library
 	with open('token.txt') as token_file:

@@ -14,11 +14,22 @@ from bot import Bot, logger as bot_logger
 @click.option('--logdir', 'logs_dir', envvar='TSAYBOT_LOGS_DIR', default='./logs', type=click.Path(
 	file_okay=False, writable=True, executable=True, resolve_path=True, path_type=pathlib.Path
 ))
-def main(config_file: io.BufferedReader, token_file: io.TextIOWrapper, logs_dir: pathlib.Path):
+@click.option('--eventdir', 'events_dir', envvar='TSAYBOT_EVENTS_DIR', default='./events', type=click.Path(
+	file_okay=False, writable=True, executable=True, resolve_path=True, path_type=pathlib.Path
+))
+def main(config_file: io.BufferedReader, token_file: io.TextIOWrapper, logs_dir: pathlib.Path, events_dir: pathlib.Path):
 
 	config = tomllib.load(config_file)
+	os.makedirs(events_dir, mode=0o755, exist_ok=True)
 	discord_cfg = config['discord']
-	bot = Bot(discord_cfg['server'], discord_cfg['vote_channel'], discord_cfg['announce_channel'], discord_cfg['voice_channel'], discord_cfg['role'])
+	bot = Bot(
+		discord_cfg['server'],
+		discord_cfg['vote_channel'],
+		discord_cfg['announce_channel'],
+		discord_cfg['voice_channel'],
+		discord_cfg['role'],
+		events_dir,
+	)
 
 	os.makedirs(logs_dir, mode=0o755, exist_ok=True)
 	log_handler = logging.FileHandler(logs_dir / 'discord.log')	# Logs exclusively emitted by the discord.py library

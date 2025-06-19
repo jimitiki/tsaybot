@@ -2,6 +2,7 @@ from zoneinfo import ZoneInfo
 import asyncio
 import datetime
 import logging
+import pathlib
 import sys
 
 from bs4 import BeautifulSoup
@@ -18,7 +19,7 @@ NY_TZ = ZoneInfo('America/New_York')
 
 class Bot(Client):
 
-	def __init__(self, guild_id: int, vote_channel_id: int, announce_channel_id: int, voice_channel_id: int, role_id: int):
+	def __init__(self, guild_id: int, vote_channel_id: int, announce_channel_id: int, voice_channel_id: int, role_id: int, events_dir: pathlib.Path):
 		intents = Intents.default()
 		intents.message_content = True
 		super().__init__(intents = intents)
@@ -28,6 +29,7 @@ class Bot(Client):
 		self.voice_channel_id = voice_channel_id
 		self.reminder_task = None
 		self.role_id = role_id
+		self.events_path = events_dir / f'events-{guild_id}.txt'
 
 	@property
 	def guild(self) -> Guild:
@@ -156,13 +158,13 @@ class Bot(Client):
 			f'<@&{self.role_id}> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')} to discuss {film_title}. As always, attendance is optional.'
 		)
 
-		with open('events.txt', 'a') as events_file:
+		with open(self.events_path, 'a') as events_file:
 			print(f'{event.id},{film_title},2', file=events_file)
 
 	async def send_reminders(self):
 
 		logger.info('Sending reminders')
-		with open('events.txt') as events_file:
+		with open(self.events_path) as events_file:
 			events = [
 				line.strip().split(',')
 				for line in events_file.readlines()
@@ -174,7 +176,7 @@ class Bot(Client):
 			]
 
 		results = await asyncio.gather(*tasks)
-		with open('events.txt', 'w') as events_file:
+		with open(self.events_path, 'w') as events_file:
 			for result in results:
 				if result:
 					print(','.join(result), file=events_file)

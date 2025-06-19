@@ -6,7 +6,7 @@ import pathlib
 import sys
 
 from bs4 import BeautifulSoup
-from discord import Client, DMChannel, EventStatus, Guild, Intents, Message, PrivacyLevel
+from discord import Client, DMChannel, EventStatus, Guild, Intents, Message, PrivacyLevel, NotFound
 from discord.abc import Messageable
 import requests
 
@@ -196,7 +196,11 @@ class Bot(Client):
 
 	async def remind_event(self, event_id: str, film_title: str, number: str) -> tuple[str,str,str] | None:
 
-		event = await self.guild.fetch_scheduled_event(int(event_id))
+		try:
+			event = await self.guild.fetch_scheduled_event(int(event_id))
+		except NotFound:
+			logger.warning(f'Failed to find scheduled event with id {event_id} ({film_title})')
+			return None
 		if event.status is not EventStatus.scheduled:
 			logger.debug(f'Skipping event with ID {event_id} due to its status: {event.status}')
 			return None

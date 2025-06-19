@@ -13,11 +13,6 @@ import scanner
 
 
 logger = logging.getLogger('bot')
-logger.setLevel(logging.DEBUG)
-handler = logging.FileHandler('bot.log')
-formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {message} (task: {taskName})', style = '{')
-handler.setFormatter(formatter)
-logger.addHandler(handler)
 
 NY_TZ = ZoneInfo('America/New_York')
 

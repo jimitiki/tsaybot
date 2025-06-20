@@ -55,6 +55,12 @@ class Bot(Client):
 		self.member_role_id = member_role_id
 		self.events_path = events_dir / f'events-{guild_id}.txt'
 
+		try:
+			with open(self.events_path, 'x'):
+				pass
+		except FileExistsError:
+			pass
+
 	@property
 	def guild(self) -> Guild:
 		guild = self.get_guild(self.guild_id)

@@ -24,7 +24,7 @@ class Bot(Client):
 		guild_id: int,
 		vote_channel_id: int,
 		announce_channel_id: int,
-		voice_channel_id: int,
+		event_channel_id: int,
 		control_channel_id: int,
 		member_role_id: int,
 		events_dir: pathlib.Path
@@ -41,7 +41,7 @@ class Bot(Client):
 			raise ValueError('No vote Channel ID provided.')
 		if not announce_channel_id:
 			raise ValueError('No announce Channel ID provided.')
-		if not voice_channel_id:
+		if not event_channel_id:
 			raise ValueError('No voice Channel ID provided.')
 		if not member_role_id:
 			raise ValueError('No role ID provided.')
@@ -50,7 +50,7 @@ class Bot(Client):
 		self.control_channel_id = control_channel_id
 		self.vote_channel_id = vote_channel_id
 		self.announce_channel_id = announce_channel_id
-		self.voice_channel_id = voice_channel_id
+		self.event_channel_id = event_channel_id
 		self.reminder_task = None
 		self.member_role_id = member_role_id
 		self.events_path = events_dir / f'events-{guild_id}.txt'
@@ -169,7 +169,7 @@ class Bot(Client):
 		kwargs = {
 			'name': f'TSAY: {film_title}{(" (" + release_year + ")") if release_year else ""}',
 			'start_time': datetime.datetime.combine(date, datetime.time(22), NY_TZ),
-			'channel': self.get_channel(self.voice_channel_id),
+			'channel': self.get_channel(self.event_channel_id),
 			'privacy_level': PrivacyLevel.guild_only,
 		}
 		if img:
@@ -220,7 +220,7 @@ class Bot(Client):
 		if event.status is not EventStatus.scheduled:
 			logger.debug(f'Skipping event with ID {event_id} due to its status: {event.status}')
 			return None
-		if not event.channel or event.channel.id != self.voice_channel_id:
+		if not event.channel or event.channel.id != self.event_channel_id:
 			logger.debug(f'Skipping event with ID {event_id} that is not for the voice channel')
 			return event_id, film_title, number
 

@@ -26,7 +26,7 @@ class Bot(Client):
 		announce_channel_id: int,
 		voice_channel_id: int,
 		control_channel_id: int,
-		role_id: int,
+		member_role_id: int,
 		events_dir: pathlib.Path
 	):
 		intents = Intents.default()
@@ -43,7 +43,7 @@ class Bot(Client):
 			raise ValueError('No announce Channel ID provided.')
 		if not voice_channel_id:
 			raise ValueError('No voice Channel ID provided.')
-		if not role_id:
+		if not member_role_id:
 			raise ValueError('No role ID provided.')
 
 		self.guild_id = guild_id
@@ -52,7 +52,7 @@ class Bot(Client):
 		self.announce_channel_id = announce_channel_id
 		self.voice_channel_id = voice_channel_id
 		self.reminder_task = None
-		self.role_id = role_id
+		self.member_role_id = member_role_id
 		self.events_path = events_dir / f'events-{guild_id}.txt'
 
 	@property
@@ -183,7 +183,7 @@ class Bot(Client):
 		logger.info(f'Created event (ID={event.id})')
 
 		await self.get_channel(self.announce_channel_id).send(
-			f'<@&{self.role_id}> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')} to discuss {film_title}. As always, attendance is optional.'
+			f'<@&{self.member_role_id}> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')} to discuss {film_title}. As always, attendance is optional.'
 		)
 
 		with open(self.events_path, 'a') as events_file:
@@ -231,13 +231,13 @@ class Bot(Client):
 		# Reminder on the day of the event
 		if time_remaining.days == 0:
 			logger.info(f'Announcing day-of reminder for event with ID {event_id} at {start_time.isoformat()}')
-			await self.get_channel(self.announce_channel_id).send(f'<@&{self.role_id}> We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {film_title}.')
+			await self.get_channel(self.announce_channel_id).send(f'<@&{self.member_role_id}> We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {film_title}.')
 			return None
 
 		# Reminder 2 (or 1) day(s) before the event
 		if number == '2' and time_remaining.days <= 2:
 			logger.info(f'Announcing 2-day reminder for event with ID {event_id} at {start_time.isoformat()}')
-			await self.get_channel(self.announce_channel_id).send(f'<@&{self.role_id}> We will be meeting on {start_time.strftime('%A')} to discuss {film_title}.')
+			await self.get_channel(self.announce_channel_id).send(f'<@&{self.member_role_id}> We will be meeting on {start_time.strftime('%A')} to discuss {film_title}.')
 			return event_id, film_title, '1'
 
 		else:

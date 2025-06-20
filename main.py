@@ -38,7 +38,7 @@ def main(
 		discord_cfg.get('announce_channel'),
 		discord_cfg.get('voice_channel'),
 		discord_cfg.get('control_channel'),
-		discord_cfg.get('role'),
+		discord_cfg.get('member_role'),
 		events_dir,
 	)
 

@@ -19,7 +19,7 @@ NY_TZ = ZoneInfo('America/New_York')
 
 class MovieInfo:
 
-	def __init__(self, title: str|None, year: str|None, img: bytes|None = None):
+	def __init__(self, title: str, year: str|None, img: bytes|None = None):
 
 		self.title = title
 		self.year  = year

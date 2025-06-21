@@ -19,10 +19,11 @@ NY_TZ = ZoneInfo('America/New_York')
 
 class MovieInfo:
 
-	def __init__(self, title: str, year: str|None, img: bytes|None = None):
+	def __init__(self, title: str, year: str|None, url: str, img: bytes|None = None):
 
 		self.title = title
 		self.year  = year
+		self.url   = url
 		self.img   = img
 
 	def __str__(self) -> str:
@@ -67,7 +68,7 @@ class MovieInfo:
 		else:
 			img = None
 		logger.info('Finished scraping Letterboxd page')
-		return cls(title, year, img)
+		return cls(title, year, url, img)
 
 class Bot(Client):
 

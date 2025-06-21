@@ -25,6 +25,12 @@ class MovieInfo:
 		self.year  = year
 		self.img   = img
 
+	def __str__(self) -> str:
+		if not self.year:
+			return self.title
+		else:
+			return f'{self.title} ({self.year})'
+
 	@classmethod
 	async def from_url(cls, url: str, fetch_image: bool = False):
 		try:

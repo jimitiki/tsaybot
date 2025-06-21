@@ -42,7 +42,7 @@ class MovieInfo:
 			logger.exception('Failed to read film title', exc_info=sys.exc_info())
 			raise
 		try:
-			year = doc.find(class_="metablock").find("div", class_="releaseyear").string
+			year = doc.find(class_="releasedate").string
 		except Exception:
 			logger.warning('Failed to read release year', exc_info=sys.exc_info())
 			year = None

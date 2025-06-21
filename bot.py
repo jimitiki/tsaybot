@@ -17,6 +17,15 @@ logger = logging.getLogger('bot')
 
 NY_TZ = ZoneInfo('America/New_York')
 
+
+class MovieInfo:
+
+	def __init__(self, title: str|None, year: str|None, img: bytes|None = None):
+
+		self.title = title
+		self.year  = year
+		self.img   = img
+
 class Bot(Client):
 
 	def __init__(
@@ -158,9 +167,9 @@ class Bot(Client):
 				logger.debug('Failed to retrieve backdrop image', exc_info=sys.exc_info())
 				img = None
 		logger.info('Finished scraping Letterboxd page')
-		await self.schedule_event(title, year, img)
+		await self.schedule_event(MovieInfo(title, year, img))
 
-	async def schedule_event(self, film_title: str, release_year: str | None, img: bytes | None):
+	async def schedule_event(self, info: MovieInfo):
 		"""
 		Creates a scheduled event in the configured server based on the provided parameters. Announces the event in the announcement channel.
 
@@ -173,13 +182,13 @@ class Bot(Client):
 
 		date = datetime.date.today() + datetime.timedelta(days=14 - (datetime.date.today().weekday() - 2))
 		kwargs = {
-			'name': f'TSAY: {film_title}{(" (" + release_year + ")") if release_year else ""}',
+			'name': f'TSAY: {info.title}{(" (" + info.year + ")") if info.year else ""}',
 			'start_time': datetime.datetime.combine(date, datetime.time(22), NY_TZ),
 			'channel': self.get_channel(self.event_channel_id),
 			'privacy_level': PrivacyLevel.guild_only,
 		}
-		if img:
-			kwargs['image'] = img
+		if info.img:
+			kwargs['image'] = info.img
 
 		try:
 			event = await self.guild.create_scheduled_event( **kwargs )
@@ -189,11 +198,11 @@ class Bot(Client):
 		logger.info(f'Created event (ID={event.id})')
 
 		await self.get_channel(self.announce_channel_id).send(
-			f'<@&{self.member_role_id}> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')} to discuss {film_title}. As always, attendance is optional.'
+			f'<@&{self.member_role_id}> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')} to discuss {info.title}. As always, attendance is optional.'
 		)
 
 		with open(self.events_path, 'a') as events_file:
-			print(f'{event.id},{film_title},2', file=events_file)
+			print(f'{event.id},{info.title},2', file=events_file)
 
 	async def send_reminders(self):
 

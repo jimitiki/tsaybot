@@ -7,8 +7,9 @@ import pathlib
 import sys
 
 from bs4 import BeautifulSoup
-from discord import app_commands, Client, EventStatus, Guild, Intents, Message, Object, PrivacyLevel, NotFound
+from discord import app_commands, Client, EventStatus, Guild, Intents, Interaction, Message, Object, NotFound, PrivacyLevel
 from discord.abc import Messageable
+from discord.ui import Modal, TextInput
 
 import scanner
 
@@ -72,6 +73,16 @@ class MovieInfo:
 
 class Bot(Client):
 
+	class MovieForm(Modal):
+		title = 'Select Your Movies'
+		movie1 = TextInput(label="", required=True)
+		movie2 = TextInput(label="", required=True)
+		movie3 = TextInput(label="", required=True)
+		movie4 = TextInput(label="", required=True)
+
+		async def on_submit(self, interaction: Interaction):
+			pass
+
 	def __init__(
 		self,
 		guild_id: int,
@@ -124,6 +135,12 @@ class Bot(Client):
 		return guild
 	
 	async def setup_hook(self) -> None:
+
+		self.tree.add_command(app_commands.Command(
+			name='ballot',
+			description='Create a ballot for club members to vote on a movie',
+			callback=self.create_ballot,
+		))
 		self.tree.copy_global_to(guild=Object(self.guild_id))
 		await self.tree.sync(guild=Object(self.guild_id))
 
@@ -161,18 +178,9 @@ class Bot(Client):
 
 		if message.channel.id == self.control_channel_id:
 			await self.handle_command(message)
-		if message.channel.id == self.vote_channel_id:
-			await self.handle_ballot(message)
 
-	async def handle_ballot(self, message: Message):
-		"""Processes a message in the voting channel"""
-
-		logger.info(f'New message in the vote channel: «{message.content}»')
-		emoji = list(scanner.find_emoji(message.content))
-		logger.debug(f'Extracted emoji: [{", ".join(str(e) for e in emoji)}]')
-		async with asyncio.TaskGroup() as tg:
-			for e in emoji:
-				tg.create_task(message.add_reaction(e), name = f'add reaction: {emoji!s}')
+	async def create_ballot(self, interaction: Interaction):
+		await interaction.response.send_modal(self.MovieForm())
 
 	async def handle_command(self, message: Message):
 		"""Processes a command in the control channel"""

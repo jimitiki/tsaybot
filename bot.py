@@ -7,7 +7,7 @@ import pathlib
 import sys
 
 from bs4 import BeautifulSoup
-from discord import app_commands, Client, EventStatus, Guild, Intents, Interaction, Message, Object, NotFound, PrivacyLevel
+from discord import app_commands, Client, EventStatus, Guild, Intents, Interaction, Message, Object, NotFound, Poll, PrivacyLevel
 from discord.abc import Messageable
 from discord.ui import Modal, TextInput
 
@@ -81,7 +81,30 @@ class Bot(Client):
 		movie4 = TextInput(label="", required=True)
 
 		async def on_submit(self, interaction: Interaction):
-			pass
+
+			if not isinstance(interaction.channel, Messageable):
+				await interaction.response.send_message("This is not a valid channel.")
+				return
+
+			async with asyncio.TaskGroup() as tg:
+				tasks = [
+					tg.create_task(MovieInfo.from_url(str(url)))
+					for url in (self.movie1, self.movie2, self.movie3, self.movie4)
+				]
+			movies = [task.result() for task in tasks]
+
+			await interaction.response.send_message(
+f"""
+{interaction.user.display_name} presents, for your consideration, the following films:
+
+{'\n'.join(f"[{str(movie)}]({movie.url})" for movie in movies)}
+"""
+			)
+
+			poll = Poll("Which movie do you want to see for the next session?", duration=datetime.timedelta(hours=24))
+			for movie in movies:
+				poll.add_answer(text=str(movie))
+			await interaction.channel.send(poll=poll)
 
 	def __init__(
 		self,

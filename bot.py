@@ -25,6 +25,44 @@ class MovieInfo:
 		self.year  = year
 		self.img   = img
 
+	@classmethod
+	async def from_url(cls, url: str, fetch_image: bool = False):
+		try:
+			async with aiohttp.request('get', url) as resp:
+				html = await resp.text()
+		except Exception:
+			logger.exception('Failed to retrieve webpage', exc_info=sys.exc_info())
+			raise
+
+		# Scrape HTML to find film title, release year, and backdrop image (if it exists)
+		doc = BeautifulSoup(html, 'html.parser')
+		try:
+			title = doc.find(class_='js-widont').string
+		except Exception:
+			logger.exception('Failed to read film title', exc_info=sys.exc_info())
+			raise
+		try:
+			year = doc.find(class_="metablock").find("div", class_="releaseyear").string
+		except Exception:
+			logger.warning('Failed to read release year', exc_info=sys.exc_info())
+			year = None
+		if fetch_image:
+			backdrop = doc.find(id='backdrop')
+			if not backdrop:
+				logger.debug('Letterboxd page missing backdrop')
+				img = None
+			else:
+				try:
+					async with aiohttp.request('get', backdrop['data-backdrop']) as resp:
+						img = await resp.read()
+				except Exception:
+					logger.debug('Failed to retrieve backdrop image', exc_info=sys.exc_info())
+					img = None
+		else:
+			img = None
+		logger.info('Finished scraping Letterboxd page')
+		return cls(title, year, img)
+
 class Bot(Client):
 
 	def __init__(
@@ -136,39 +174,7 @@ class Bot(Client):
 			logger.warning('Control message did not contain a URL')
 			await message.channel.send('Invalid URL')
 			return
-
-		try:
-			async with aiohttp.request('get', content) as resp:
-				html = await resp.text()
-		except Exception:
-			logger.exception('Failed to retrieve webpage', exc_info=sys.exc_info())
-			return
-
-		# Scrape HTML to find film title, release year, and backdrop image (if it exists)
-		doc = BeautifulSoup(html, 'html.parser')
-		try:
-			title = doc.find(class_='js-widont').string
-		except Exception:
-			logger.exception('Failed to read film title', exc_info=sys.exc_info())
-			return
-		try:
-			year = doc.find(class_="metablock").find("div", class_="releaseyear").string
-		except Exception:
-			logger.warning('Failed to read release year', exc_info=sys.exc_info())
-			year = None
-		backdrop = doc.find(id='backdrop')
-		if not backdrop:
-			logger.debug('Letterboxd page missing backdrop')
-			img = None
-		else:
-			try:
-				async with aiohttp.request('get', backdrop['data-backdrop']) as resp:
-					img = await resp.read()
-			except Exception:
-				logger.debug('Failed to retrieve backdrop image', exc_info=sys.exc_info())
-				img = None
-		logger.info('Finished scraping Letterboxd page')
-		await self.schedule_event(MovieInfo(title, year, img))
+		await self.schedule_event(await MovieInfo.from_url(content, fetch_image=True))
 
 	async def schedule_event(self, info: MovieInfo):
 		"""

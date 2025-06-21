@@ -7,7 +7,7 @@ import pathlib
 import sys
 
 from bs4 import BeautifulSoup
-from discord import Client, EventStatus, Guild, Intents, Message, PrivacyLevel, NotFound
+from discord import app_commands, Client, EventStatus, Guild, Intents, Message, Object, PrivacyLevel, NotFound
 from discord.abc import Messageable
 
 import scanner
@@ -107,12 +107,18 @@ class Bot(Client):
 		except FileExistsError:
 			pass
 
+		self.tree = app_commands.CommandTree(self)
+
 	@property
 	def guild(self) -> Guild:
 		guild = self.get_guild(self.guild_id)
 		if guild is None:
 			raise RuntimeError('Failed to access Guild. Either the Guild does not exist or the Client is not completely ready.')
 		return guild
+	
+	async def setup_hook(self) -> None:
+		self.tree.copy_global_to(guild=Object(self.guild_id))
+		await self.tree.sync(guild=Object(self.guild_id))
 
 	def get_channel(self, channel_id: int, /):
 

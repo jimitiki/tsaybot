@@ -1,3 +1,4 @@
+from collections.abc import Callable, Coroutine
 from zoneinfo import ZoneInfo
 import aiohttp
 import asyncio
@@ -73,39 +74,6 @@ class MovieInfo:
 
 class Bot(Client):
 
-	class MovieForm(Modal):
-		title = 'Select Your Movies'
-		movie1 = TextInput(label="", required=True)
-		movie2 = TextInput(label="", required=True)
-		movie3 = TextInput(label="", required=True)
-		movie4 = TextInput(label="", required=True)
-
-		async def on_submit(self, interaction: Interaction):
-
-			if not isinstance(interaction.channel, Messageable):
-				await interaction.response.send_message("This is not a valid channel.")
-				return
-
-			async with asyncio.TaskGroup() as tg:
-				tasks = [
-					tg.create_task(MovieInfo.from_url(str(url)))
-					for url in (self.movie1, self.movie2, self.movie3, self.movie4)
-				]
-			movies = [task.result() for task in tasks]
-
-			await interaction.response.send_message(
-f"""
-{interaction.user.display_name} presents, for your consideration, the following films:
-
-{'\n'.join(f"[{str(movie)}]({movie.url})" for movie in movies)}
-"""
-			)
-
-			poll = Poll("Which movie do you want to see for the next session?", duration=datetime.timedelta(hours=24))
-			for movie in movies:
-				poll.add_answer(text=str(movie))
-			await interaction.channel.send(poll=poll)
-
 	def __init__(
 		self,
 		guild_id: int,
@@ -149,6 +117,7 @@ f"""
 			pass
 
 		self.tree = app_commands.CommandTree(self)
+		self.commands = [SlashBallot(self)]
 
 	@property
 	def guild(self) -> Guild:
@@ -159,11 +128,8 @@ f"""
 	
 	async def setup_hook(self) -> None:
 
-		self.tree.add_command(app_commands.Command(
-			name='ballot',
-			description='Create a ballot for club members to vote on a movie',
-			callback=self.create_ballot,
-		))
+		for command in self.commands:
+			command.register()
 		self.tree.copy_global_to(guild=Object(self.guild_id))
 		await self.tree.sync(guild=Object(self.guild_id))
 
@@ -201,9 +167,6 @@ f"""
 
 		if message.channel.id == self.control_channel_id:
 			await self.handle_command(message)
-
-	async def create_ballot(self, interaction: Interaction):
-		await interaction.response.send_modal(self.MovieForm())
 
 	async def handle_command(self, message: Message):
 		"""Processes a command in the control channel"""
@@ -309,3 +272,64 @@ f"""
 		else:
 			logger.debug(f'Skipping event at {start_time.isoformat()}')
 			return event_id, film_title, number
+
+
+class Command:
+
+	def __init__(self, client: Bot, command: app_commands.Command|app_commands.ContextMenu):
+		self.client = client
+		self.command = command
+
+	def register(self):
+		self.client.tree.add_command(self.command)
+
+class SlashBallot(Command):
+
+	class MovieForm(Modal):
+		title = 'Select Your Movies'
+		movie1 = TextInput(label="1:", required=True)
+		movie2 = TextInput(label="2:", required=True)
+		movie3 = TextInput(label="3:", required=True)
+		movie4 = TextInput(label="4:", required=True)
+
+		def __init__(self, callback: Callable[...,Coroutine]):
+			super().__init__()
+			self.callback = callback
+
+		async def on_submit(self, interaction: Interaction):
+			await self.callback(interaction, self.movie1, self.movie2, self.movie3, self.movie4)
+
+	def __init__(self, client: Bot):
+		super().__init__(client, app_commands.Command(
+			name='ballot',
+			description='Create a ballot for club members to vote on a movie',
+			callback=self.create_ballot,
+		))
+
+	async def create_ballot(self, interaction: Interaction):
+		await interaction.response.send_modal(self.MovieForm(self.send_poll))
+
+	async def send_poll(self, interaction: Interaction, *urls: tuple[str]):
+		if not isinstance(interaction.channel, Messageable):
+			await interaction.response.send_message("This is not a valid channel.")
+			return
+
+		async with asyncio.TaskGroup() as tg:
+			tasks = [
+				tg.create_task(MovieInfo.from_url(str(url)))
+				for url in urls
+			]
+		movies = [task.result() for task in tasks]
+
+		await interaction.response.send_message(
+f"""
+{interaction.user.display_name} presents, for your consideration, the following films:
+
+{'\n'.join(f"[{str(movie)}]({movie.url})" for movie in movies)}
+"""
+		)
+
+		poll = Poll("Which movie do you want to see for the next session?", duration=datetime.timedelta(hours=24))
+		for movie in movies:
+			poll.add_answer(text=str(movie))
+		await interaction.channel.send(poll=poll)

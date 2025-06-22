@@ -1,4 +1,5 @@
 from zoneinfo import ZoneInfo
+import aiohttp
 import asyncio
 import datetime
 import logging
@@ -8,7 +9,6 @@ import sys
 from bs4 import BeautifulSoup
 from discord import Client, EventStatus, Guild, Intents, Message, PrivacyLevel, NotFound
 from discord.abc import Messageable
-import requests
 
 import scanner
 
@@ -16,7 +16,6 @@ import scanner
 logger = logging.getLogger('bot')
 
 NY_TZ = ZoneInfo('America/New_York')
-
 
 class MovieInfo:
 
@@ -139,7 +138,8 @@ class Bot(Client):
 			return
 
 		try:
-			html = requests.get(content).content
+			async with aiohttp.request('get', content) as resp:
+				html = await resp.text()
 		except Exception:
 			logger.exception('Failed to retrieve webpage', exc_info=sys.exc_info())
 			return
@@ -162,7 +162,8 @@ class Bot(Client):
 			img = None
 		else:
 			try:
-				img = requests.get(backdrop['data-backdrop']).content
+				async with aiohttp.request('get', backdrop['data-backdrop']) as resp:
+					img = await resp.read()
 			except Exception:
 				logger.debug('Failed to retrieve backdrop image', exc_info=sys.exc_info())
 				img = None

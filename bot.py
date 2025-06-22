@@ -286,7 +286,7 @@ class Command:
 class SlashBallot(Command):
 
 	class MovieForm(Modal):
-		title = 'Select Your Movies'
+		title = 'Nominations'
 		movie1 = TextInput(label="1:", required=True)
 		movie2 = TextInput(label="2:", required=True)
 		movie3 = TextInput(label="3:", required=True)

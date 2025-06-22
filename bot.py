@@ -297,6 +297,7 @@ class SlashBallot(Command):
 			self.callback = callback
 
 		async def on_submit(self, interaction: Interaction):
+			logger.info(f"Nominations submitted: {', '.join((str(self.movie1), str(self.movie2), str(self.movie3), str(self.movie4)))}")
 			await self.callback(interaction, self.movie1, self.movie2, self.movie3, self.movie4)
 
 	def __init__(self, client: Bot):
@@ -307,6 +308,7 @@ class SlashBallot(Command):
 		))
 
 	async def create_ballot(self, interaction: Interaction):
+		logger.info(f'Recieved /ballot command. User: {interaction.user.id}; Channel: {interaction.channel_id}')
 		await interaction.response.send_modal(self.MovieForm(self.send_poll))
 
 	async def send_poll(self, interaction: Interaction, *urls: tuple[str]):
@@ -333,3 +335,4 @@ f"""
 		for movie in movies:
 			poll.add_answer(text=str(movie))
 		await interaction.channel.send(poll=poll)
+		logger.info('Sent poll')

@@ -1,4 +1,5 @@
 from collections.abc import Callable, Coroutine
+import random
 from zoneinfo import ZoneInfo
 import aiohttp
 import asyncio
@@ -12,6 +13,7 @@ from discord import app_commands, Client, EventStatus, Guild, Intents, Interacti
 from discord.abc import Messageable
 from discord.ui import Modal, TextInput
 
+from emojis import EMOJIS
 import scanner
 
 
@@ -321,18 +323,18 @@ class SlashBallot(Command):
 				tg.create_task(MovieInfo.from_url(str(url)))
 				for url in urls
 			]
-		movies = [task.result() for task in tasks]
+		choices = list(zip(random.sample(list(EMOJIS), 4), [task.result() for task in tasks]))
 
 		await interaction.response.send_message(
 f"""
 {interaction.user.display_name} presents, for your consideration, the following films:
 
-{'\n'.join(f"[{str(movie)}]({movie.url})" for movie in movies)}
+{'\n'.join(f"{emoji} [{str(movie)}]({movie.url})" for i, (emoji, movie) in enumerate(choices))}
 """
 		)
 
 		poll = Poll("Which movie do you want to see for the next session?", duration=datetime.timedelta(hours=24))
-		for movie in movies:
-			poll.add_answer(text=str(movie))
+		for emoji, movie in choices:
+			poll.add_answer(text=str(movie), emoji=emoji)
 		await interaction.channel.send(poll=poll)
 		logger.info('Sent poll')

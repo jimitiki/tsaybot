@@ -21,6 +21,11 @@ logger = logging.getLogger('bot')
 
 NY_TZ = ZoneInfo('America/New_York')
 
+class VotingError(Exception):
+	def __init__(self, msg: str, response: str, *args):
+		super().__init__(msg, *args)
+		self.response = response
+
 class MovieInfo:
 
 	def __init__(self, title: str, year: str|None, url: str, img: bytes|None = None):
@@ -354,3 +359,49 @@ class BookSession(Command):
 	async def close_poll(self, interaction: Interaction, message: Message):
 
 		logger.info(f"Recieved 'End Voting' context menu command. Message: {message.id}; Channel: {message.channel.id}")
+		message = await self.client.get_channel(message.channel.id).fetch_message(message.id)		# Unfortunately, the message that Discord sends does not include the poll results.
+		try:
+			url, title = self.get_winner(ballot_text=message.content, poll=message.poll)
+		except VotingError as exc:
+			asyncio.create_task(interaction.response.send_message(exc.response, ephemeral=True))
+			logger.warning("Couldn't determine the URL of the vote winner", exc_info=True)
+			return
+		except Exception:
+			logger.exception("Unexpected exception caught while finalizing the vote.", exc_info=True)
+			asyncio.create_task(interaction.response.send_message("An error occurred while finalizing the vote. You'll have to do it manually."))
+			raise
+		asyncio.create_task(interaction.response.send_message(
+			f"And the winner is... ~~La La Land~~ {title}! I'll proceed to make the club event now."
+		))
+		if not message.poll.is_finalized():				# type: ignore # get_winner() has already verified that `poll` is defined.
+			asyncio.create_task(message.poll.end())		# type: ignore # get_winner() has already verified that `poll` is defined.
+		await self.client.schedule_event(await MovieInfo.from_url(url, fetch_image=True))
+
+	def get_winner(self, ballot_text: str, poll: Poll|None) -> tuple[str, str]:
+		"""
+		Determines the Letterboxd URL of the poll winner.
+
+		:param ballot_text: The text sent with the "ballot". This is expected to contain
+			markdown-embedded URLs for each candidate movie.
+		:param poll: The poll itself. It will be closed if all conditions are met to conclude
+			voting
+		:returns: A tuple of the URL and the title of the winning movie.
+		:raises: `VotingError` if the URL of the winner cannot be detected. This includes the
+			condition where the URLs cannot be read, or if there are multiple winners.
+		"""
+
+		urls = scanner.extract_urls_from_ballot(ballot_text)
+		if not urls:
+			raise VotingError("The target message did not have markdown-embedded URLs", "This is not a valid ballot.")
+		if not poll:
+			raise VotingError("The target message did not contain a poll.", "This message does not contain a poll.")
+		if len(urls) != len(poll.answers):
+			raise VotingError("The number of markdown-embedded URLs does not match the number of poll answers", "This is not a valid ballot.")
+		highest_vote_count = max([answer.vote_count for answer in poll.answers])
+		winners = [
+			entry for entry in zip(urls, poll.answers)
+			if entry[1].vote_count == highest_vote_count
+		]
+		if len(winners) > 1:
+			raise VotingError("The target poll had multiple winners", "There is a tie. Please break the tie and try again.")
+		return winners[0][0], winners[0][1].text

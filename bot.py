@@ -319,6 +319,9 @@ class SlashBallot(Command):
 
 	async def create_ballot(self, interaction: Interaction):
 		logger.info(f'Recieved /ballot command. User: {interaction.user.id}; Channel: {interaction.channel_id}')
+		if interaction.channel_id != self.client.vote_channel_id:
+			logger.info(f'/ballot command is not in voting channel')
+			await interaction.response.send_message("/ballot cannot be used in this channel.", ephemeral=True)
 		await interaction.response.send_modal(self.MovieForm(self.send_poll))
 
 	async def send_poll(self, interaction: Interaction, *urls: tuple[str]):

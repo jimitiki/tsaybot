@@ -324,14 +324,14 @@ class SlashBallot(Command):
 			await interaction.response.send_message("/ballot cannot be used in this channel.", ephemeral=True)
 		await interaction.response.send_modal(self.MovieForm(self.send_poll))
 
-	async def send_poll(self, interaction: Interaction, *urls: tuple[str]):
+	async def send_poll(self, interaction: Interaction, *urls: str):
 		if not isinstance(interaction.channel, Messageable):
 			await interaction.response.send_message("This is not a valid channel.")
 			return
 
 		async with asyncio.TaskGroup() as tg:
 			tasks = [
-				tg.create_task(MovieInfo.from_url(str(url)))
+				tg.create_task(MovieInfo.from_url(url))
 				for url in urls
 			]
 		choices = list(zip(random.sample(list(EMOJIS), 4), [task.result() for task in tasks]))

@@ -346,7 +346,7 @@ f"""
 
 		poll = Poll("Which movie do you want to watch for the next session?", duration=datetime.timedelta(hours=24))
 		for emoji, movie in choices:
-			poll.add_answer(text=str(movie), emoji=emoji)
+			poll.add_answer(text=movie.title, emoji=emoji)
 		await interaction.channel.send(content="".join(f"[.]({movie.url})" for _, movie in choices), poll=poll, suppress_embeds=True)
 		logger.info('Sent poll')
 

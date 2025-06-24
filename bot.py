@@ -9,7 +9,7 @@ import pathlib
 import sys
 
 from bs4 import BeautifulSoup
-from discord import app_commands, Client, EventStatus, Guild, Intents, Interaction, Message, Object, NotFound, Poll, PrivacyLevel
+from discord import AppCommandType, app_commands, Client, EventStatus, Guild, Intents, Interaction, Message, Object, NotFound, Poll, PrivacyLevel
 from discord.abc import Messageable
 from discord.ui import Modal, TextInput
 
@@ -119,7 +119,10 @@ class Bot(Client):
 			pass
 
 		self.tree = app_commands.CommandTree(self)
-		self.commands = [SlashBallot(self)]
+		self.commands = [
+			SlashBallot(self),
+			BookSession(self),
+		]
 
 	@property
 	def guild(self) -> Guild:
@@ -338,3 +341,16 @@ f"""
 			poll.add_answer(text=str(movie), emoji=emoji)
 		await interaction.channel.send(poll=poll)
 		logger.info('Sent poll')
+
+class BookSession(Command):
+
+	def __init__(self, client: Bot):
+		super().__init__(client, app_commands.ContextMenu(
+			name="End Voting",
+			callback=self.close_poll,
+			type=AppCommandType.message,
+		))
+
+	async def close_poll(self, interaction: Interaction, message: Message):
+
+		logger.info(f"Recieved 'End Voting' context menu command. Message: {message.id}; Channel: {message.channel.id}")

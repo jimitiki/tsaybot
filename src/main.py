@@ -6,7 +6,8 @@ import tomllib
 
 import click
 
-from .bot import Bot, SlashBallot, BookSession, logger as bot_logger
+from .bot import Bot, logger as bot_logger
+from .commands import SlashBallot, BookSession
 
 @click.command()
 @click.option('--config', 'config_file', envvar='TSAYBOT_CONFIG_PATH', default='config.toml', type=click.File(mode='rb'))

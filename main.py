@@ -34,10 +34,10 @@ def main(
 	discord_cfg = config.get('discord', {})
 	bot = Bot(
 		discord_cfg.get('guild'),
+		discord_cfg.get('control_channel'),
 		discord_cfg.get('vote_channel'),
 		discord_cfg.get('announce_channel'),
 		discord_cfg.get('event_channel'),
-		discord_cfg.get('control_channel'),
 		discord_cfg.get('member_role'),
 		events_dir,
 	)

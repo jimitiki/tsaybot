@@ -84,10 +84,10 @@ class Bot(Client):
 	def __init__(
 		self,
 		guild_id: int,
+		control_channel_id: int,
 		vote_channel_id: int,
 		announce_channel_id: int,
 		event_channel_id: int,
-		control_channel_id: int,
 		member_role_id: int,
 		events_dir: pathlib.Path
 	):

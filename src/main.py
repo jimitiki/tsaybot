@@ -6,7 +6,7 @@ import tomllib
 
 import click
 
-from .bot import Bot, logger as bot_logger
+from .bot import Bot, SlashBallot, BookSession, logger as bot_logger
 
 @click.command()
 @click.option('--config', 'config_file', envvar='TSAYBOT_CONFIG_PATH', default='config.toml', type=click.File(mode='rb'))
@@ -54,6 +54,8 @@ def main(
 	token = token_file.read().strip()
 	token_file.close()
 
+	for cmd_type in (BookSession, SlashBallot):
+		bot.tree.add_command(cmd_type(bot).command)
 	bot.run(token, log_handler=log_handler)
 
 if __name__ == '__main__':

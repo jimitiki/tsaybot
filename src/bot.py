@@ -124,10 +124,6 @@ class Bot(Client):
 			pass
 
 		self.tree = app_commands.CommandTree(self)
-		self.commands = [
-			SlashBallot(self),
-			BookSession(self),
-		]
 
 	@property
 	def guild(self) -> Guild:
@@ -135,13 +131,6 @@ class Bot(Client):
 		if guild is None:
 			raise RuntimeError('Failed to access Guild. Either the Guild does not exist or the Client is not completely ready.')
 		return guild
-	
-	async def setup_hook(self) -> None:
-
-		for command in self.commands:
-			command.register()
-		self.tree.copy_global_to(guild=Object(self.guild_id))
-		await self.tree.sync(guild=Object(self.guild_id))
 
 	def get_channel(self, channel_id: int, /):
 
@@ -292,9 +281,6 @@ class Command:
 
 	def make_command(self) -> app_commands.Command | app_commands.ContextMenu:
 		raise NotImplemented
-
-	def register(self):
-		self.client.tree.add_command(self.command)
 
 class SlashBallot(Command):
 

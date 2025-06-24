@@ -13,8 +13,8 @@ from discord import AppCommandType, app_commands, Client, EventStatus, Guild, In
 from discord.abc import Messageable
 from discord.ui import Modal, TextInput
 
-from emojis import EMOJIS
-import scanner
+from . import scanner
+from .emojis import EMOJIS
 
 
 logger = logging.getLogger('bot')

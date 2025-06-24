@@ -6,7 +6,7 @@ import tomllib
 
 import click
 
-from bot import Bot, logger as bot_logger
+from .bot import Bot, logger as bot_logger
 
 @click.command()
 @click.option('--config', 'config_file', envvar='TSAYBOT_CONFIG_PATH', default='config.toml', type=click.File(mode='rb'))

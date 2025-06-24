@@ -286,9 +286,12 @@ class Bot(Client):
 
 class Command:
 
-	def __init__(self, client: Bot, command: app_commands.Command|app_commands.ContextMenu):
+	def __init__(self, client: Bot):
 		self.client = client
-		self.command = command
+		self.command = self.make_command()
+
+	def make_command(self) -> app_commands.Command | app_commands.ContextMenu:
+		raise NotImplemented
 
 	def register(self):
 		self.client.tree.add_command(self.command)
@@ -310,12 +313,12 @@ class SlashBallot(Command):
 			logger.info(f"Nominations submitted: {', '.join((str(self.movie1), str(self.movie2), str(self.movie3), str(self.movie4)))}")
 			await self.callback(interaction, self.movie1, self.movie2, self.movie3, self.movie4)
 
-	def __init__(self, client: Bot):
-		super().__init__(client, app_commands.Command(
+	def make_command(self):
+		return app_commands.Command(
 			name='ballot',
 			description='Create a ballot for club members to vote on a movie',
 			callback=self.create_ballot,
-		))
+		)
 
 	async def create_ballot(self, interaction: Interaction):
 		logger.info(f'Recieved /ballot command. User: {interaction.user.id}; Channel: {interaction.channel_id}')
@@ -352,12 +355,12 @@ f"""
 
 class BookSession(Command):
 
-	def __init__(self, client: Bot):
-		super().__init__(client, app_commands.ContextMenu(
+	def make_command(self):
+		return app_commands.ContextMenu(
 			name="End Voting",
 			callback=self.close_poll,
 			type=AppCommandType.message,
-		))
+		)
 
 	async def close_poll(self, interaction: Interaction, message: Message):
 

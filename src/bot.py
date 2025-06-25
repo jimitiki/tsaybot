@@ -124,12 +124,12 @@ class Bot(Client):
 		if not member_role_id:
 			raise ValueError('No role ID provided.')
 
-		self.guild_id = guild_id
-		self.control_channel_id = control_channel_id
-		self.vote_channel_id = vote_channel_id
-		self.announce_channel_id = announce_channel_id
-		self.event_channel_id = event_channel_id
-		self.member_role_id = member_role_id
+		self.__guild_id = guild_id
+		self.__control_channel_id = control_channel_id
+		self.__vote_channel_id = vote_channel_id
+		self.__announce_channel_id = announce_channel_id
+		self.__event_channel_id = event_channel_id
+		self.__member_role_id = member_role_id
 		self.reminder_task = None
 		self.events_path = events_dir / f'events-{guild_id}.txt'
 		self.domain: Domain = None		# type: ignore # This will always be set to a Domain by the time it's used.
@@ -156,32 +156,32 @@ class Bot(Client):
 
 	def load_domain(self):
 
-		guild = self.get_guild(self.guild_id)
+		guild = self.get_guild(self.__guild_id)
 		if not guild:
-			raise RuntimeError(f'Failed to access guild with ID {self.guild_id}.')
-		control_channel = self.get_channel(self.control_channel_id)
+			raise RuntimeError(f'Failed to access guild with ID {self.__guild_id}.')
+		control_channel = self.get_channel(self.__control_channel_id)
 		if not control_channel:
-			raise RuntimeError(f'Failed to access channel with ID {self.control_channel_id}.')
+			raise RuntimeError(f'Failed to access channel with ID {self.__control_channel_id}.')
 		if not isinstance(control_channel, TextChannel):
-			raise RuntimeError(f'Control channel must be a text channel. Got {type(control_channel)} (ID: {self.control_channel_id})')
-		vote_channel = self.get_channel(self.vote_channel_id)
+			raise RuntimeError(f'Control channel must be a text channel. Got {type(control_channel)} (ID: {self.__control_channel_id})')
+		vote_channel = self.get_channel(self.__vote_channel_id)
 		if not vote_channel:
-			raise RuntimeError(f'Failed to access channel with ID {self.vote_channel_id}.')
+			raise RuntimeError(f'Failed to access channel with ID {self.__vote_channel_id}.')
 		if not isinstance(vote_channel, TextChannel):
-			raise RuntimeError(f'Vote channel must be a text channel. Got {type(vote_channel)} (ID: {self.vote_channel_id})')
-		announce_channel = self.get_channel(self.announce_channel_id)
+			raise RuntimeError(f'Vote channel must be a text channel. Got {type(vote_channel)} (ID: {self.__vote_channel_id})')
+		announce_channel = self.get_channel(self.__announce_channel_id)
 		if not announce_channel:
-			raise RuntimeError(f'Failed to access channel with ID {self.announce_channel_id}.')
+			raise RuntimeError(f'Failed to access channel with ID {self.__announce_channel_id}.')
 		if not isinstance(announce_channel, TextChannel):
-			raise RuntimeError(f'Announcement channel must be a text channel. Got {type(announce_channel)} (ID: {self.announce_channel_id})')
-		event_channel = self.get_channel(self.event_channel_id)
+			raise RuntimeError(f'Announcement channel must be a text channel. Got {type(announce_channel)} (ID: {self.__announce_channel_id})')
+		event_channel = self.get_channel(self.__event_channel_id)
 		if not event_channel:
-			raise RuntimeError(f'Failed to access channel with ID {self.event_channel_id}.')
+			raise RuntimeError(f'Failed to access channel with ID {self.__event_channel_id}.')
 		if not isinstance(event_channel, VoiceChannel):
-			raise RuntimeError(f'Event channel must be a voice channel. Got {type(event_channel)} (ID: {self.event_channel_id})')
-		member_role = guild.get_role(self.member_role_id)
+			raise RuntimeError(f'Event channel must be a voice channel. Got {type(event_channel)} (ID: {self.__event_channel_id})')
+		member_role = guild.get_role(self.__member_role_id)
 		if not member_role:
-			raise RuntimeError(f'Failed to access role with ID {self.member_role_id}.')
+			raise RuntimeError(f'Failed to access role with ID {self.__member_role_id}.')
 
 		self.domain = Domain(guild, control_channel, vote_channel, announce_channel, event_channel, member_role)
 

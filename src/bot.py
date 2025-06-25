@@ -1,13 +1,26 @@
 from zoneinfo import ZoneInfo
 import aiohttp
 import asyncio
+import dataclasses
 import datetime
 import logging
 import pathlib
 import sys
 
 from bs4 import BeautifulSoup
-from discord import app_commands, Client, EventStatus, Guild, Intents, Message, NotFound, PrivacyLevel
+from discord import (
+	app_commands,
+	Client,
+	EventStatus,
+	Guild,
+	Intents,
+	Message,
+	NotFound,
+	PrivacyLevel,
+	Role,
+	TextChannel,
+	VoiceChannel,
+)
 
 from . import scanner
 
@@ -69,6 +82,19 @@ class MovieInfo:
 		logger.info('Finished scraping Letterboxd page')
 		return cls(title, year, url, img)
 
+@dataclasses.dataclass
+class Domain:
+	"""
+	Contains all of the Discord objects needed for one instance of the bot to function.
+	"""
+
+	guild: Guild
+	control_channel: TextChannel
+	vote_channel: TextChannel
+	announce_channel: TextChannel
+	event_channel: VoiceChannel
+	member_role: Role
+
 class Bot(Client):
 
 	def __init__(
@@ -103,9 +129,10 @@ class Bot(Client):
 		self.vote_channel_id = vote_channel_id
 		self.announce_channel_id = announce_channel_id
 		self.event_channel_id = event_channel_id
-		self.reminder_task = None
 		self.member_role_id = member_role_id
+		self.reminder_task = None
 		self.events_path = events_dir / f'events-{guild_id}.txt'
+		self.domain: Domain = None		# type: ignore # This will always be set to a Domain by the time it's used.
 
 		try:
 			with open(self.events_path, 'x'):
@@ -133,6 +160,8 @@ class Bot(Client):
 
 	async def on_ready(self):
 
+		if not self.domain:
+			self.load_domain()
 		print('Talking shit...')
 
 		# If the reminder task is already defined, don't bother creating a new one or doing reminders right now; they will happen at the designated time.
@@ -140,6 +169,37 @@ class Bot(Client):
 			return
 		self.reminder_task = asyncio.create_task(self.run_reminders())
 		await asyncio.create_task(self.send_reminders())
+
+	def load_domain(self):
+
+		guild = self.get_guild(self.guild_id)
+		if not guild:
+			raise RuntimeError(f'Failed to access guild with ID {self.guild_id}.')
+		control_channel = self.get_channel(self.control_channel_id)
+		if not control_channel:
+			raise RuntimeError(f'Failed to access channel with ID {self.control_channel_id}.')
+		if not isinstance(control_channel, TextChannel):
+			raise RuntimeError(f'Control channel must be a text channel. Got {type(control_channel)} (ID: {self.control_channel_id})')
+		vote_channel = self.get_channel(self.vote_channel_id)
+		if not vote_channel:
+			raise RuntimeError(f'Failed to access channel with ID {self.vote_channel_id}.')
+		if not isinstance(vote_channel, TextChannel):
+			raise RuntimeError(f'Vote channel must be a text channel. Got {type(vote_channel)} (ID: {self.vote_channel_id})')
+		announce_channel = self.get_channel(self.announce_channel_id)
+		if not announce_channel:
+			raise RuntimeError(f'Failed to access channel with ID {self.announce_channel_id}.')
+		if not isinstance(announce_channel, TextChannel):
+			raise RuntimeError(f'Announcement channel must be a text channel. Got {type(announce_channel)} (ID: {self.announce_channel_id})')
+		event_channel = self.get_channel(self.event_channel_id)
+		if not event_channel:
+			raise RuntimeError(f'Failed to access channel with ID {self.event_channel_id}.')
+		if not isinstance(event_channel, VoiceChannel):
+			raise RuntimeError(f'Event channel must be a voice channel. Got {type(event_channel)} (ID: {self.event_channel_id})')
+		member_role = guild.get_role(self.member_role_id)
+		if not member_role:
+			raise RuntimeError(f'Failed to access role with ID {self.member_role_id}.')
+
+		self.domain = Domain(guild, control_channel, vote_channel, announce_channel, event_channel, member_role)
 
 	async def run_reminders(self):
 

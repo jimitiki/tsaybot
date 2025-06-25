@@ -135,8 +135,7 @@ class Bot(Client):
 		self.domain: Domain = None		# type: ignore # This will always be set to a Domain by the time it's used.
 
 		try:
-			with open(self.events_path, 'x'):
-				pass
+			open(self.events_path, 'x').close()
 		except FileExistsError:
 			pass
 

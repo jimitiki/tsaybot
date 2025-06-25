@@ -142,22 +142,6 @@ class Bot(Client):
 
 		self.tree = app_commands.CommandTree(self)
 
-	@property
-	def guild(self) -> Guild:
-		guild = self.get_guild(self.guild_id)
-		if guild is None:
-			raise RuntimeError('Failed to access Guild. Either the Guild does not exist or the Client is not completely ready.')
-		return guild
-
-	def get_channel(self, channel_id: int, /):
-
-		channel = super().get_channel(channel_id)
-		if channel is None:
-			raise RuntimeError(f'Failed to access Channel with ID {channel_id}. Either the Channel does not exist or the Client is not completely ready.')
-		if not isinstance(channel, Messageable):
-			raise RuntimeError(f'Channel with ID {channel_id} does not support messages.')
-		return channel
-
 	async def on_ready(self):
 
 		if not self.domain:
@@ -214,7 +198,7 @@ class Bot(Client):
 
 	async def on_message(self, message: Message):
 
-		if message.channel.id == self.control_channel_id:
+		if message.channel == self.domain.control_channel:
 			await self.handle_command(message)
 
 	async def handle_command(self, message: Message):
@@ -247,21 +231,21 @@ class Bot(Client):
 		kwargs = {
 			'name': f'TSAY: {info.title}{(" (" + info.year + ")") if info.year else ""}',
 			'start_time': datetime.datetime.combine(date, datetime.time(22), NY_TZ),
-			'channel': self.get_channel(self.event_channel_id),
+			'channel': self.domain.event_channel,
 			'privacy_level': PrivacyLevel.guild_only,
 		}
 		if info.img:
 			kwargs['image'] = info.img
 
 		try:
-			event = await self.guild.create_scheduled_event( **kwargs )
+			event = await self.domain.guild.create_scheduled_event( **kwargs )
 		except Exception:
 			logger.exception('Failed to create event', exc_info=sys.exc_info())
 			return
 		logger.info(f'Created event (ID={event.id})')
 
-		await self.get_channel(self.announce_channel_id).send(
-			f'<@&{self.member_role_id}> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')} to discuss {info.title}. As always, attendance is optional.'
+		await self.domain.announce_channel.send(
+			f'<@&{self.domain.member_role.id}> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')} to discuss {info.title}. As always, attendance is optional.'
 		)
 
 		with open(self.events_path, 'a') as events_file:
@@ -291,14 +275,14 @@ class Bot(Client):
 	async def remind_event(self, event_id: str, film_title: str, number: str) -> tuple[str,str,str] | None:
 
 		try:
-			event = await self.guild.fetch_scheduled_event(int(event_id))
+			event = await self.domain.guild.fetch_scheduled_event(int(event_id))
 		except NotFound:
 			logger.warning(f'Failed to find scheduled event with id {event_id} ({film_title})')
 			return None
 		if event.status is not EventStatus.scheduled:
 			logger.debug(f'Skipping event with ID {event_id} due to its status: {event.status}')
 			return None
-		if not event.channel or event.channel.id != self.event_channel_id:
+		if not event.channel or event.channel != self.domain.event_channel:
 			logger.debug(f'Skipping event with ID {event_id} that is not for the voice channel')
 			return event_id, film_title, number
 
@@ -309,13 +293,13 @@ class Bot(Client):
 		# Reminder on the day of the event
 		if time_remaining.days == 0:
 			logger.info(f'Announcing day-of reminder for event with ID {event_id} at {start_time.isoformat()}')
-			await self.get_channel(self.announce_channel_id).send(f'<@&{self.member_role_id}> We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {film_title}.')
+			await self.domain.announce_channel.send(f'<@&{self.domain.member_role.id}> We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {film_title}.')
 			return None
 
 		# Reminder 2 (or 1) day(s) before the event
 		if number == '2' and time_remaining.days <= 2:
 			logger.info(f'Announcing 2-day reminder for event with ID {event_id} at {start_time.isoformat()}')
-			await self.get_channel(self.announce_channel_id).send(f'<@&{self.member_role_id}> We will be meeting on {start_time.strftime('%A')} to discuss {film_title}.')
+			await self.domain.announce_channel.send(f'<@&{self.domain.member_role.id}> We will be meeting on {start_time.strftime('%A')} to discuss {film_title}.')
 			return event_id, film_title, '1'
 
 		else:

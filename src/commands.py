@@ -51,7 +51,7 @@ class SlashBallot(Command):
 
 	async def create_ballot(self, interaction: Interaction):
 		logger.info(f'Recieved /ballot command. User: {interaction.user.id}; Channel: {interaction.channel_id}')
-		if interaction.channel_id != self.client.vote_channel_id:
+		if interaction.channel != self.client.domain.vote_channel:
 			logger.info(f'/ballot command is not in voting channel')
 			await interaction.response.send_message("/ballot cannot be used in this channel.", ephemeral=True)
 		await interaction.response.send_modal(self.MovieForm(self.send_poll))
@@ -94,9 +94,9 @@ class BookSession(Command):
 	async def close_poll(self, interaction: Interaction, message: Message):
 
 		logger.info(f"Recieved 'End Voting' context menu command. Message: {message.id}; Channel: {message.channel.id}")
-		if message.channel.id != self.client.domain.vote_channel:
+		if message.channel != self.client.domain.vote_channel:
 			asyncio.create_task(interaction.response.send_message("This is not a valid channel for this interaction."))
-		message = await self.client.get_channel(message.channel.id).fetch_message(message.id)		# Unfortunately, the message that Discord sends does not include the poll results.
+		message = await self.client.domain.vote_channel.fetch_message(message.id)		# Unfortunately, the message that Discord sends does not include the poll results.
 		try:
 			url, title = self.get_winner(ballot_text=message.content, poll=message.poll)
 		except VotingError as exc:

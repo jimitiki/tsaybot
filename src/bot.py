@@ -88,6 +88,7 @@ class Domain:
 	Contains all of the Discord objects needed for one instance of the bot to function.
 	"""
 
+	name: str
 	guild: Guild
 	control_channel: TextChannel
 	vote_channel: TextChannel
@@ -295,7 +296,7 @@ class Bot(Client):
 		if member_role.guild != guild:
 			raise RuntimeError(f'Specified member role is not part of the Guild.')
 
-		return Domain(guild, control_channel, vote_channel, announce_channel, event_channel, member_role, self.__events_dir)
+		return Domain(name, guild, control_channel, vote_channel, announce_channel, event_channel, member_role, self.__events_dir)
 
 	def resolve_domain(self, channel: TextChannel | int) -> Domain | None:
 		if isinstance(channel, int):

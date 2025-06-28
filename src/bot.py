@@ -208,37 +208,14 @@ class Bot(Client):
 
 	def __init__(
 		self,
-		guild_id: int,
-		control_channel_id: int,
-		vote_channel_id: int,
-		announce_channel_id: int,
-		event_channel_id: int,
-		member_role_id: int,
-		events_dir: pathlib.Path
+		domains_cfg: dict[str,dict],
+		events_dir: pathlib.Path,
 	):
 		intents = Intents.default()
 		intents.message_content = True
 		super().__init__(intents = intents)
 
-		if not guild_id:
-			raise ValueError('No Guild ID provided.')
-		if not control_channel_id:
-			raise ValueError('No control Channel ID provided.')
-		if not vote_channel_id:
-			raise ValueError('No vote Channel ID provided.')
-		if not announce_channel_id:
-			raise ValueError('No announce Channel ID provided.')
-		if not event_channel_id:
-			raise ValueError('No voice Channel ID provided.')
-		if not member_role_id:
-			raise ValueError('No role ID provided.')
-
-		self.__guild_id = guild_id
-		self.__control_channel_id = control_channel_id
-		self.__vote_channel_id = vote_channel_id
-		self.__announce_channel_id = announce_channel_id
-		self.__event_channel_id = event_channel_id
-		self.__member_role_id = member_role_id
+		self.__domains_cfg = domains_cfg
 		self.__events_dir = events_dir
 
 		self.domains: list[Domain] = []
@@ -262,38 +239,63 @@ class Bot(Client):
 		await asyncio.create_task(self.send_reminders())
 
 	def load_domains(self):
+		self.domains = [
+			self.load_domain(name, cfg)
+			for name, cfg in self.__domains_cfg.items()
+		]
+		self.__domain_by_control_channel_id = {
+			domain.control_channel.id: domain
+			for domain in self.domains
+		}
+		self.__domain_by_vote_channel_id = {
+			domain.vote_channel.id: domain
+			for domain in self.domains
+		}
 
-		guild = self.get_guild(self.__guild_id)
+	def load_domain(self, name: str, cfg: dict[str,int]):
+		guild = self.get_guild(cfg['guild'])
 		if not guild:
-			raise RuntimeError(f'Failed to access guild with ID {self.__guild_id}.')
-		control_channel = self.get_channel(self.__control_channel_id)
-		if not control_channel:
-			raise RuntimeError(f'Failed to access channel with ID {self.__control_channel_id}.')
-		if not isinstance(control_channel, TextChannel):
-			raise RuntimeError(f'Control channel must be a text channel. Got {type(control_channel)} (ID: {self.__control_channel_id})')
-		vote_channel = self.get_channel(self.__vote_channel_id)
-		if not vote_channel:
-			raise RuntimeError(f'Failed to access channel with ID {self.__vote_channel_id}.')
-		if not isinstance(vote_channel, TextChannel):
-			raise RuntimeError(f'Vote channel must be a text channel. Got {type(vote_channel)} (ID: {self.__vote_channel_id})')
-		announce_channel = self.get_channel(self.__announce_channel_id)
-		if not announce_channel:
-			raise RuntimeError(f'Failed to access channel with ID {self.__announce_channel_id}.')
-		if not isinstance(announce_channel, TextChannel):
-			raise RuntimeError(f'Announcement channel must be a text channel. Got {type(announce_channel)} (ID: {self.__announce_channel_id})')
-		event_channel = self.get_channel(self.__event_channel_id)
-		if not event_channel:
-			raise RuntimeError(f'Failed to access channel with ID {self.__event_channel_id}.')
-		if not isinstance(event_channel, VoiceChannel):
-			raise RuntimeError(f'Event channel must be a voice channel. Got {type(event_channel)} (ID: {self.__event_channel_id})')
-		member_role = guild.get_role(self.__member_role_id)
-		if not member_role:
-			raise RuntimeError(f'Failed to access role with ID {self.__member_role_id}.')
+			raise RuntimeError(f'Failed to access guild with ID {cfg['guild']}.')
 
-		domain = Domain(guild, control_channel, vote_channel, announce_channel, event_channel, member_role, self.__events_dir)
-		self.domains = [domain]
-		self.__domain_by_control_channel_id[control_channel.id] = domain
-		self.__domain_by_vote_channel_id[vote_channel.id] = domain
+		control_channel = self.get_channel(cfg['control_channel'])
+		if not control_channel:
+			raise RuntimeError(f'Failed to access channel with ID {cfg['control_channel']}.')
+		if not isinstance(control_channel, TextChannel):
+			raise RuntimeError(f'Control channel must be a text channel. Got {type(control_channel)} (ID: {cfg['control_channel']})')
+		if control_channel.guild != guild:
+			raise RuntimeError(f'Specified control channel is not part of the Guild.')
+
+		vote_channel = self.get_channel(cfg['vote_channel'])
+		if not vote_channel:
+			raise RuntimeError(f'Failed to access channel with ID {cfg['vote_channel']}.')
+		if not isinstance(vote_channel, TextChannel):
+			raise RuntimeError(f'Vote channel must be a text channel. Got {type(vote_channel)} (ID: {cfg['vote_channel']})')
+		if control_channel.guild != guild:
+			raise RuntimeError(f'Specified control channel is not part of the Guild.')
+
+		announce_channel = self.get_channel(cfg['announce_channel'])
+		if not announce_channel:
+			raise RuntimeError(f'Failed to access channel with ID {cfg['announce_channel']}.')
+		if not isinstance(announce_channel, TextChannel):
+			raise RuntimeError(f'Announcement channel must be a text channel. Got {type(announce_channel)} (ID: {cfg['announce_channel']})')
+		if announce_channel.guild != guild:
+			raise RuntimeError(f'Specified announcement channel is not part of the Guild.')
+
+		event_channel = self.get_channel(cfg['event_channel'])
+		if not event_channel:
+			raise RuntimeError(f'Failed to access channel with ID {cfg['event_channel']}.')
+		if not isinstance(event_channel, VoiceChannel):
+			raise RuntimeError(f'Event channel must be a voice channel. Got {type(event_channel)} (ID: {cfg['event_channel']})')
+		if event_channel.guild != guild:
+			raise RuntimeError(f'Specified event channel is not part of the Guild.')
+
+		member_role = guild.get_role(cfg['member_role'])
+		if not member_role:
+			raise RuntimeError(f'Failed to access role with ID {cfg['member_role']}.')
+		if member_role.guild != guild:
+			raise RuntimeError(f'Specified member role is not part of the Guild.')
+
+		return Domain(guild, control_channel, vote_channel, announce_channel, event_channel, member_role, self.__events_dir)
 
 	def resolve_domain(self, channel: TextChannel | int) -> Domain | None:
 		if isinstance(channel, int):

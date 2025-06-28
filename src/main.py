@@ -32,14 +32,8 @@ def main(
 	os.makedirs(events_dir, mode=0o755, exist_ok=True)
 	os.makedirs(logs_dir, mode=0o755, exist_ok=True)
 
-	discord_cfg = config.get('discord', {})
 	bot = Bot(
-		discord_cfg.get('guild'),
-		discord_cfg.get('control_channel'),
-		discord_cfg.get('vote_channel'),
-		discord_cfg.get('announce_channel'),
-		discord_cfg.get('event_channel'),
-		discord_cfg.get('member_role'),
+		config.get('domains', {}),
 		events_dir,
 	)
 

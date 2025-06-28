@@ -104,7 +104,59 @@ class Domain:
 			open(self.events_path, 'x').close()
 		except FileExistsError:
 			pass
-		
+
+	async def send_reminders(self):
+		with open(self.events_path) as events_file:
+			events = [
+				line.strip().split(',')
+				for line in events_file.readlines()
+			]
+		async with asyncio.TaskGroup() as tg:
+			tasks = [
+				tg.create_task(self.remind_event(event_id, film_title, number))
+				for event_id, film_title, number in events
+			]
+
+		results = await asyncio.gather(*tasks)
+		with open(self.events_path, 'w') as events_file:
+			for result in results:
+				if result:
+					print(','.join(result), file=events_file)
+		logger.info('Reminders completed')
+
+	async def remind_event(self, event_id: str, film_title: str, number: str) -> tuple[str,str,str] | None:
+
+		try:
+			event = await self.guild.fetch_scheduled_event(int(event_id))
+		except NotFound:
+			logger.warning(f'Failed to find scheduled event with id {event_id} ({film_title})')
+			return None
+		if event.status is not EventStatus.scheduled:
+			logger.debug(f'Skipping event with ID {event_id} due to its status: {event.status}')
+			return None
+		if not event.channel or event.channel != self.event_channel:
+			logger.debug(f'Skipping event with ID {event_id} that is not for the voice channel')
+			return event_id, film_title, number
+
+		start_time = event.start_time.astimezone(NY_TZ)
+		time_remaining = start_time - datetime.datetime.now(NY_TZ)
+		logger.info(f'Event with ID {event_id} at {start_time.isoformat()} in {time_remaining.days} days')
+
+		# Reminder on the day of the event
+		if time_remaining.days == 0:
+			logger.info(f'Announcing day-of reminder for event with ID {event_id} at {start_time.isoformat()}')
+			await self.announce_channel.send(f'<@&{self.member_role.id}> We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {film_title}.')
+			return None
+
+		# Reminder 2 (or 1) day(s) before the event
+		if number == '2' and time_remaining.days <= 2:
+			logger.info(f'Announcing 2-day reminder for event with ID {event_id} at {start_time.isoformat()}')
+			await self.announce_channel.send(f'<@&{self.member_role.id}> We will be meeting on {start_time.strftime('%A')} to discuss {film_title}.')
+			return event_id, film_title, '1'
+
+		else:
+			logger.debug(f'Skipping event at {start_time.isoformat()}')
+			return event_id, film_title, number
 
 class Bot(Client):
 
@@ -259,54 +311,4 @@ class Bot(Client):
 	async def send_reminders(self):
 
 		logger.info('Sending reminders')
-		with open(self.domain.events_path) as events_file:
-			events = [
-				line.strip().split(',')
-				for line in events_file.readlines()
-			]
-		async with asyncio.TaskGroup() as tg:
-			tasks = [
-				tg.create_task(self.remind_event(event_id, film_title, number))
-				for event_id, film_title, number in events
-			]
-
-		results = await asyncio.gather(*tasks)
-		with open(self.domain.events_path, 'w') as events_file:
-			for result in results:
-				if result:
-					print(','.join(result), file=events_file)
-		logger.info('Reminders completed')
-
-	async def remind_event(self, event_id: str, film_title: str, number: str) -> tuple[str,str,str] | None:
-
-		try:
-			event = await self.domain.guild.fetch_scheduled_event(int(event_id))
-		except NotFound:
-			logger.warning(f'Failed to find scheduled event with id {event_id} ({film_title})')
-			return None
-		if event.status is not EventStatus.scheduled:
-			logger.debug(f'Skipping event with ID {event_id} due to its status: {event.status}')
-			return None
-		if not event.channel or event.channel != self.domain.event_channel:
-			logger.debug(f'Skipping event with ID {event_id} that is not for the voice channel')
-			return event_id, film_title, number
-
-		start_time = event.start_time.astimezone(NY_TZ)
-		time_remaining = start_time - datetime.datetime.now(NY_TZ)
-		logger.info(f'Event with ID {event_id} at {start_time.isoformat()} in {time_remaining.days} days')
-
-		# Reminder on the day of the event
-		if time_remaining.days == 0:
-			logger.info(f'Announcing day-of reminder for event with ID {event_id} at {start_time.isoformat()}')
-			await self.domain.announce_channel.send(f'<@&{self.domain.member_role.id}> We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {film_title}.')
-			return None
-
-		# Reminder 2 (or 1) day(s) before the event
-		if number == '2' and time_remaining.days <= 2:
-			logger.info(f'Announcing 2-day reminder for event with ID {event_id} at {start_time.isoformat()}')
-			await self.domain.announce_channel.send(f'<@&{self.domain.member_role.id}> We will be meeting on {start_time.strftime('%A')} to discuss {film_title}.')
-			return event_id, film_title, '1'
-
-		else:
-			logger.debug(f'Skipping event at {start_time.isoformat()}')
-			return event_id, film_title, number
+		await self.domain.send_reminders()

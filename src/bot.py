@@ -99,7 +99,7 @@ class Domain:
 	events_dir: dataclasses.InitVar[pathlib.Path]
 
 	def __post_init__(self, events_dir: pathlib.Path):
-		self.events_path = events_dir / f'events-{self.guild.id}.txt'
+		self.events_path = events_dir / f'events-{self.name}.txt'
 
 		try:
 			open(self.events_path, 'x').close()

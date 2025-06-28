@@ -241,14 +241,18 @@ class Bot(Client):
 		self.__member_role_id = member_role_id
 		self.__events_dir = events_dir
 
+		self.domains: list[Domain] = []
+		self.__domain_by_vote_channel_id: dict[int,Domain] = {}
+		self.__domain_by_control_channel_id: dict[int,Domain] = {}
+
 		self.reminder_task: asyncio.Task | None = None
-		self.domain: Domain = None		# type: ignore # This will always be set to a Domain by the time it's used.
+
 		self.tree = app_commands.CommandTree(self)
 
 	async def on_ready(self):
 
-		if not self.domain:
-			self.load_domain()
+		if not self.domains:
+			self.load_domains()
 		print('Talking shit...')
 
 		# If the reminder task is already defined, don't bother creating a new one or doing reminders right now; they will happen at the designated time.
@@ -257,7 +261,7 @@ class Bot(Client):
 		self.reminder_task = asyncio.create_task(self.run_reminders())
 		await asyncio.create_task(self.send_reminders())
 
-	def load_domain(self):
+	def load_domains(self):
 
 		guild = self.get_guild(self.__guild_id)
 		if not guild:
@@ -286,7 +290,17 @@ class Bot(Client):
 		if not member_role:
 			raise RuntimeError(f'Failed to access role with ID {self.__member_role_id}.')
 
-		self.domain = Domain(guild, control_channel, vote_channel, announce_channel, event_channel, member_role, self.__events_dir)
+		domain = Domain(guild, control_channel, vote_channel, announce_channel, event_channel, member_role, self.__events_dir)
+		self.domains = [domain]
+		self.__domain_by_control_channel_id[control_channel.id] = domain
+		self.__domain_by_vote_channel_id[vote_channel.id] = domain
+
+	def resolve_domain(self, channel: TextChannel | int) -> Domain | None:
+		if isinstance(channel, int):
+			channel_id = channel
+		else:
+			channel_id = channel.id
+		return self.__domain_by_control_channel_id.get(channel_id) or self.__domain_by_vote_channel_id.get(channel_id)
 
 	async def run_reminders(self):
 
@@ -301,14 +315,17 @@ class Bot(Client):
 
 	async def on_message(self, message: Message):
 
-		if message.channel != self.domain.control_channel:
+		domain = self.resolve_domain(message.channel.id)
+		if not domain:
 			return
 		if self.user not in message.mentions:
 			logger.info('Skipping message that does not @ mention bot')
 			return
-		await self.domain.handle_command(message)
+		await domain.handle_command(message)
 
 	async def send_reminders(self):
 
 		logger.info('Sending reminders')
-		await self.domain.send_reminders()
+		async with asyncio.TaskGroup() as tg:
+			for domain in self.domains:
+				tg.create_task(domain.send_reminders())

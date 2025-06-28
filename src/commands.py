@@ -51,14 +51,15 @@ class SlashBallot(Command):
 
 	async def create_ballot(self, interaction: Interaction):
 		logger.info(f'Recieved /ballot command. User: {interaction.user.id}; Channel: {interaction.channel_id}')
-		if interaction.channel != self.client.domain.vote_channel:
+		if not interaction.channel_id or not self.client.resolve_domain(interaction.channel_id):
 			logger.info(f'/ballot command is not in voting channel')
 			await interaction.response.send_message("/ballot cannot be used in this channel.", ephemeral=True)
-		await interaction.response.send_modal(self.MovieForm(self.send_poll))
+		else:
+			await interaction.response.send_modal(self.MovieForm(self.send_poll))
 
 	async def send_poll(self, interaction: Interaction, *urls: str):
 		if not isinstance(interaction.channel, Messageable):
-			await interaction.response.send_message("This is not a valid channel.")
+			await interaction.response.send_message("This is not a valid channel.", ephemeral=True)
 			return
 
 		async with asyncio.TaskGroup() as tg:
@@ -94,9 +95,11 @@ class BookSession(Command):
 	async def close_poll(self, interaction: Interaction, message: Message):
 
 		logger.info(f"Recieved 'End Voting' context menu command. Message: {message.id}; Channel: {message.channel.id}")
-		if message.channel != self.client.domain.vote_channel:
-			asyncio.create_task(interaction.response.send_message("This is not a valid channel for this interaction."))
-		message = await self.client.domain.vote_channel.fetch_message(message.id)		# Unfortunately, the message that Discord sends does not include the poll results.
+		domain = self.client.resolve_domain(message.channel.id)
+		if not domain:
+			asyncio.create_task(interaction.response.send_message("This is not a valid channel for this interaction.", ephemeral=True))
+			return
+		message = await domain.vote_channel.fetch_message(message.id)		# Unfortunately, the message that Discord sends does not include the poll results.
 		try:
 			url, title = self.get_winner(ballot_text=message.content, poll=message.poll)
 		except VotingError as exc:
@@ -105,14 +108,14 @@ class BookSession(Command):
 			return
 		except Exception:
 			logger.exception("Unexpected exception caught while finalizing the vote.", exc_info=True)
-			asyncio.create_task(interaction.response.send_message("An error occurred while finalizing the vote. You'll have to do it manually."))
+			asyncio.create_task(interaction.response.send_message("An error occurred while finalizing the vote. You'll have to do it manually.", ephemeral=True))
 			raise
 		asyncio.create_task(interaction.response.send_message(
-			f"And the winner is... ~~La La Land~~ {title}! I'll proceed to make the club event now."
+			f"And the winner is... ~~La La Land~~ {title}! I'll proceed to make the club event now.", ephemeral=True
 		))
 		if not message.poll.is_finalized():				# type: ignore # get_winner() has already verified that `poll` is defined.
 			asyncio.create_task(message.poll.end())		# type: ignore # get_winner() has already verified that `poll` is defined.
-		await self.client.domain.schedule_event(await MovieInfo.from_url(url, fetch_image=True))
+		await domain.schedule_event(await MovieInfo.from_url(url, fetch_image=True))
 
 	def get_winner(self, ballot_text: str, poll: Poll|None) -> tuple[str, str]:
 		"""

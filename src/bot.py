@@ -94,6 +94,17 @@ class Domain:
 	announce_channel: TextChannel
 	event_channel: VoiceChannel
 	member_role: Role
+	events_path: pathlib.Path = dataclasses.field(init=False)
+	events_dir: dataclasses.InitVar[pathlib.Path]
+
+	def __post_init__(self, events_dir: pathlib.Path):
+		self.events_path = events_dir / f'events-{self.guild.id}.txt'
+
+		try:
+			open(self.events_path, 'x').close()
+		except FileExistsError:
+			pass
+		
 
 class Bot(Client):
 
@@ -130,15 +141,10 @@ class Bot(Client):
 		self.__announce_channel_id = announce_channel_id
 		self.__event_channel_id = event_channel_id
 		self.__member_role_id = member_role_id
-		self.reminder_task = None
-		self.events_path = events_dir / f'events-{guild_id}.txt'
+		self.__events_dir = events_dir
+
+		self.reminder_task: asyncio.Task | None = None
 		self.domain: Domain = None		# type: ignore # This will always be set to a Domain by the time it's used.
-
-		try:
-			open(self.events_path, 'x').close()
-		except FileExistsError:
-			pass
-
 		self.tree = app_commands.CommandTree(self)
 
 	async def on_ready(self):
@@ -182,7 +188,7 @@ class Bot(Client):
 		if not member_role:
 			raise RuntimeError(f'Failed to access role with ID {self.__member_role_id}.')
 
-		self.domain = Domain(guild, control_channel, vote_channel, announce_channel, event_channel, member_role)
+		self.domain = Domain(guild, control_channel, vote_channel, announce_channel, event_channel, member_role, self.__events_dir)
 
 	async def run_reminders(self):
 
@@ -247,13 +253,13 @@ class Bot(Client):
 			f'<@&{self.domain.member_role.id}> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')} to discuss {info.title}. As always, attendance is optional.'
 		)
 
-		with open(self.events_path, 'a') as events_file:
+		with open(self.domain.events_path, 'a') as events_file:
 			print(f'{event.id},{info.title},2', file=events_file)
 
 	async def send_reminders(self):
 
 		logger.info('Sending reminders')
-		with open(self.events_path) as events_file:
+		with open(self.domain.events_path) as events_file:
 			events = [
 				line.strip().split(',')
 				for line in events_file.readlines()
@@ -265,7 +271,7 @@ class Bot(Client):
 			]
 
 		results = await asyncio.gather(*tasks)
-		with open(self.events_path, 'w') as events_file:
+		with open(self.domain.events_path, 'w') as events_file:
 			for result in results:
 				if result:
 					print(','.join(result), file=events_file)

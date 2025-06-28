@@ -109,6 +109,8 @@ class Domain:
 	async def handle_command(self, message: Message):
 		"""Processes a command in the control channel"""
 
+		if message.channel != self.control_channel:
+			return
 		logger.debug(f'Control message: «{message.content}»')
 		content = message.content.strip().partition(' ')[2].strip()
 		if not scanner.is_url(content):

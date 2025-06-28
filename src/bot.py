@@ -105,6 +105,17 @@ class Domain:
 		except FileExistsError:
 			pass
 
+	async def handle_command(self, message: Message):
+		"""Processes a command in the control channel"""
+
+		logger.debug(f'Control message: «{message.content}»')
+		content = message.content.strip().partition(' ')[2].strip()
+		if not scanner.is_url(content):
+			logger.warning('Control message did not contain a URL')
+			await message.channel.send('Invalid URL')
+			return
+		await self.schedule_event(await MovieInfo.from_url(content, fetch_image=True))
+
 	async def schedule_event(self, info: MovieInfo):
 		"""
 		Creates a scheduled event in the configured server based on the provided parameters. Announces the event in the announcement channel.
@@ -290,23 +301,12 @@ class Bot(Client):
 
 	async def on_message(self, message: Message):
 
-		if message.channel == self.domain.control_channel:
-			await self.handle_command(message)
-
-	async def handle_command(self, message: Message):
-		"""Processes a command in the control channel"""
-
+		if message.channel != self.domain.control_channel:
+			return
 		if self.user not in message.mentions:
 			logger.info('Skipping message that does not @ mention bot')
 			return
-
-		logger.debug(f'Control message: «{message.content}»')
-		content = message.content.strip().partition(' ')[2].strip()
-		if not scanner.is_url(content):
-			logger.warning('Control message did not contain a URL')
-			await message.channel.send('Invalid URL')
-			return
-		await self.domain.schedule_event(await MovieInfo.from_url(content, fetch_image=True))
+		await self.domain.handle_command(message)
 
 	async def send_reminders(self):
 

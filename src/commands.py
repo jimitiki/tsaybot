@@ -45,7 +45,7 @@ class SlashBallot(Command):
 	def make_command(self):
 		return app_commands.Command(
 			name='ballot',
-			description='Create a ballot for club members to vote on a movie',
+			description='Nominate movies for club members to vote on',
 			callback=self.create_ballot,
 		)
 

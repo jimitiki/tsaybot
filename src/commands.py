@@ -40,7 +40,7 @@ class SlashBallot(Command):
 
 		async def on_submit(self, interaction: Interaction):
 			logger.info(f"Nominations submitted: {', '.join((str(self.movie1), str(self.movie2), str(self.movie3), str(self.movie4)))}")
-			await self.callback(interaction, self.movie1, self.movie2, self.movie3, self.movie4)
+			await self.callback(interaction, self.movie1.value, self.movie2.value, self.movie3.value, self.movie4.value)
 
 	def make_command(self):
 		return app_commands.Command(

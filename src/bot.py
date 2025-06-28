@@ -1,3 +1,4 @@
+from collections import defaultdict
 from zoneinfo import ZoneInfo
 import aiohttp
 import asyncio
@@ -242,10 +243,20 @@ class Bot(Client):
 		await asyncio.create_task(self.send_reminders())
 
 	def load_domains(self):
+
 		self.domains = [
 			self.load_domain(name, cfg)
 			for name, cfg in self.__domains_cfg.items()
 		]
+
+		domains_by_channel = defaultdict(set)
+		for domain in self.domains:
+			domains_by_channel[domain.vote_channel].add(domain.name)
+			domains_by_channel[domain.control_channel].add(domain.name)
+		for channel_id, domains in domains_by_channel.items():
+			if len(domains) > 1:
+				raise RuntimeError(f"The following domains use the same channel ({channel_id}) as a voting and/or control channel: {', '.join(domains)}")
+
 		self.__domain_by_control_channel_id = {
 			domain.control_channel.id: domain
 			for domain in self.domains

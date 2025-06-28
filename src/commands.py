@@ -112,7 +112,7 @@ class BookSession(Command):
 		))
 		if not message.poll.is_finalized():				# type: ignore # get_winner() has already verified that `poll` is defined.
 			asyncio.create_task(message.poll.end())		# type: ignore # get_winner() has already verified that `poll` is defined.
-		await self.client.schedule_event(await MovieInfo.from_url(url, fetch_image=True))
+		await self.client.domain.schedule_event(await MovieInfo.from_url(url, fetch_image=True))
 
 	def get_winner(self, ballot_text: str, poll: Poll|None) -> tuple[str, str]:
 		"""

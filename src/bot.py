@@ -105,6 +105,41 @@ class Domain:
 		except FileExistsError:
 			pass
 
+	async def schedule_event(self, info: MovieInfo):
+		"""
+		Creates a scheduled event in the configured server based on the provided parameters. Announces the event in the announcement channel.
+
+		This function assumes that the event will be on the Wednesday of the week after next from the current date at 7:00 PM Eastern.
+
+		:param film_title: Title of the selected film. Used in the title of the event
+		:param release_year: Year the film was released. Used in the title of the event. Optional.
+		:param img: Raw binary data representing the image. Must be a PNG or JPEG format. Optional.
+		"""
+
+		date = datetime.date.today() + datetime.timedelta(days=14 - (datetime.date.today().weekday() - 2))
+		kwargs = {
+			'name': f'TSAY: {info.title}{(" (" + info.year + ")") if info.year else ""}',
+			'start_time': datetime.datetime.combine(date, datetime.time(22), NY_TZ),
+			'channel': self.event_channel,
+			'privacy_level': PrivacyLevel.guild_only,
+		}
+		if info.img:
+			kwargs['image'] = info.img
+
+		try:
+			event = await self.guild.create_scheduled_event( **kwargs )
+		except Exception:
+			logger.exception('Failed to create event', exc_info=sys.exc_info())
+			return
+		logger.info(f'Created event (ID={event.id})')
+
+		await self.announce_channel.send(
+			f'<@&{self.member_role.id}> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')} to discuss {info.title}. As always, attendance is optional.'
+		)
+
+		with open(self.events_path, 'a') as events_file:
+			print(f'{event.id},{info.title},2', file=events_file)
+
 	async def send_reminders(self):
 		with open(self.events_path) as events_file:
 			events = [
@@ -271,42 +306,7 @@ class Bot(Client):
 			logger.warning('Control message did not contain a URL')
 			await message.channel.send('Invalid URL')
 			return
-		await self.schedule_event(await MovieInfo.from_url(content, fetch_image=True))
-
-	async def schedule_event(self, info: MovieInfo):
-		"""
-		Creates a scheduled event in the configured server based on the provided parameters. Announces the event in the announcement channel.
-
-		This function assumes that the event will be on the Wednesday of the week after next from the current date at 7:00 PM Eastern.
-
-		:param film_title: Title of the selected film. Used in the title of the event
-		:param release_year: Year the film was released. Used in the title of the event. Optional.
-		:param img: Raw binary data representing the image. Must be a PNG or JPEG format. Optional.
-		"""
-
-		date = datetime.date.today() + datetime.timedelta(days=14 - (datetime.date.today().weekday() - 2))
-		kwargs = {
-			'name': f'TSAY: {info.title}{(" (" + info.year + ")") if info.year else ""}',
-			'start_time': datetime.datetime.combine(date, datetime.time(22), NY_TZ),
-			'channel': self.domain.event_channel,
-			'privacy_level': PrivacyLevel.guild_only,
-		}
-		if info.img:
-			kwargs['image'] = info.img
-
-		try:
-			event = await self.domain.guild.create_scheduled_event( **kwargs )
-		except Exception:
-			logger.exception('Failed to create event', exc_info=sys.exc_info())
-			return
-		logger.info(f'Created event (ID={event.id})')
-
-		await self.domain.announce_channel.send(
-			f'<@&{self.domain.member_role.id}> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')} to discuss {info.title}. As always, attendance is optional.'
-		)
-
-		with open(self.domain.events_path, 'a') as events_file:
-			print(f'{event.id},{info.title},2', file=events_file)
+		await self.domain.schedule_event(await MovieInfo.from_url(content, fetch_image=True))
 
 	async def send_reminders(self):
 

@@ -1,6 +1,7 @@
 from collections import defaultdict
 from collections.abc import Callable
 from types import CoroutineType
+from typing import Self
 from zoneinfo import ZoneInfo
 import aiohttp
 import asyncio
@@ -85,6 +86,24 @@ class MovieInfo:
 			img = None
 		logger.info('Finished scraping Letterboxd page')
 		return cls(title, year, url, img)
+
+@dataclasses.dataclass
+class Session:
+
+	id: int
+	title: str
+	reminder_count: int
+
+	def tostr(self) -> str:
+		return f'{self.id},{self.title},{self.reminder_count}'
+
+	@classmethod
+	def fromstr(cls, s: str) -> Self:
+		id, title, reminder_count = s.split(',')
+		return cls(id, title, int(reminder_count))
+
+	def replace(self, **changes):
+		return dataclasses.replace(self, **changes)
 
 class Timer:
 
@@ -187,57 +206,60 @@ class Domain:
 			print(f'{event.id},{info.title},2', file=events_file)
 
 	async def send_reminders(self):
-		with open(self.events_path) as events_file:
-			events = [
-				line.strip().split(',')
-				for line in events_file.readlines()
-			]
+		sessions = self.read_sessions()
 		async with asyncio.TaskGroup() as tg:
 			tasks = [
-				tg.create_task(self.remind_event(event_id, film_title, number))
-				for event_id, film_title, number in events
+				tg.create_task(self.remind_event(event))
+				for event in sessions
 			]
 
-		results = await asyncio.gather(*tasks)
+		events_updated = await asyncio.gather(*tasks)
 		with open(self.events_path, 'w') as events_file:
-			for result in results:
-				if result:
-					print(','.join(result), file=events_file)
+			for event in events_updated:
+				if event:
+					print(event.tostr(), file=events_file)
 		logger.info('Reminders completed')
 
-	async def remind_event(self, event_id: str, film_title: str, number: str) -> tuple[str,str,str] | None:
+	async def remind_event(self, session) -> Session | None:
 
 		try:
-			event = await self.guild.fetch_scheduled_event(int(event_id))
+			event = await self.guild.fetch_scheduled_event(int(session.id))
 		except NotFound:
-			logger.warning(f'Failed to find scheduled event with id {event_id} ({film_title})')
+			logger.warning(f'Failed to find scheduled event with id {session.id} ({session.title})')
 			return None
 		if event.status is not EventStatus.scheduled:
-			logger.debug(f'Skipping event with ID {event_id} due to its status: {event.status}')
+			logger.debug(f'Skipping event with ID {session.id} due to its status: {event.status}')
 			return None
 		if not event.channel or event.channel != self.event_channel:
-			logger.debug(f'Skipping event with ID {event_id} that is not for the voice channel')
-			return event_id, film_title, number
+			logger.debug(f'Skipping event with ID {session.id} that is not for the voice channel')
+			return session
 
 		start_time = event.start_time.astimezone(NY_TZ)
 		time_remaining = start_time - datetime.datetime.now(NY_TZ)
-		logger.info(f'Event with ID {event_id} at {start_time.isoformat()} in {time_remaining.days} days')
+		logger.info(f'Event with ID {session.id} at {start_time.isoformat()} in {time_remaining.days} days')
 
 		# Reminder on the day of the event
 		if time_remaining.days == 0:
-			logger.info(f'Announcing day-of reminder for event with ID {event_id} at {start_time.isoformat()}')
-			await self.announce_channel.send(f'<@&{self.member_role.id}> We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {film_title}.')
+			logger.info(f'Announcing day-of reminder for event with ID {session.id} at {start_time.isoformat()}')
+			await self.announce_channel.send(f'<@&{self.member_role.id}> We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {session.title}.')
 			return None
 
 		# Reminder 2 (or 1) day(s) before the event
-		if number == '2' and time_remaining.days <= 2:
-			logger.info(f'Announcing 2-day reminder for event with ID {event_id} at {start_time.isoformat()}')
-			await self.announce_channel.send(f'<@&{self.member_role.id}> We will be meeting on {start_time.strftime('%A')} to discuss {film_title}.')
-			return event_id, film_title, '1'
+		if time_remaining.days <= 2 and session.reminder_count >= 2:
+			logger.info(f'Announcing 2-day reminder for event with ID {session.id} at {start_time.isoformat()}')
+			await self.announce_channel.send(f'<@&{self.member_role.id}> We will be meeting on {start_time.strftime('%A')} to discuss {session.title}.')
+			return session.replace(reminder_count=1)
 
 		else:
 			logger.debug(f'Skipping event at {start_time.isoformat()}')
-			return event_id, film_title, number
+			return session
+
+	def read_sessions(self):
+		with open(self.events_path) as events_file:
+			return [
+				Session.fromstr(line.strip())
+				for line in events_file.readlines()
+			]
 
 class Bot(Client):
 

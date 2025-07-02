@@ -1,4 +1,6 @@
 from collections import defaultdict
+from collections.abc import Callable
+from types import CoroutineType
 from zoneinfo import ZoneInfo
 import aiohttp
 import asyncio
@@ -82,6 +84,31 @@ class MovieInfo:
 			img = None
 		logger.info('Finished scraping Letterboxd page')
 		return cls(title, year, url, img)
+
+class Timer:
+
+	def __init__(self, wait: Callable[[], CoroutineType] | None, callback: Callable[[], CoroutineType], repeat: bool = True):
+		self.wait = wait
+		self.callback = callback
+		self.repeat = repeat
+		self.delay = -1
+
+	async def start(self):
+
+		ten_am_tomorrow = datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=1), datetime.time(10), tzinfo = NY_TZ)
+		self.delay = (ten_am_tomorrow - datetime.datetime.now(NY_TZ)).total_seconds()
+		asyncio.create_task(self.execute())
+		logger.info('Timer started.')
+
+	async def execute(self):
+		logger.info(f'Waiting for {self.delay} seconds')
+		await asyncio.sleep(self.delay)
+		logger.info('Finished waiting')
+		if self.wait:
+			await self.wait()
+		await self.callback()
+		if self.repeat:
+			asyncio.create_task(self.execute())
 
 @dataclasses.dataclass
 class Domain:
@@ -226,7 +253,7 @@ class Bot(Client):
 		self.__domain_by_vote_channel_id: dict[int,Domain] = {}
 		self.__domain_by_control_channel_id: dict[int,Domain] = {}
 
-		self.reminder_task: asyncio.Task | None = None
+		self.reminder_timer: Timer | None = None
 
 		self.tree = app_commands.CommandTree(self)
 
@@ -237,10 +264,17 @@ class Bot(Client):
 		print('Talking shit...')
 
 		# If the reminder task is already defined, don't bother creating a new one or doing reminders right now; they will happen at the designated time.
-		if self.reminder_task:
+		if self.reminder_timer:
 			return
-		self.reminder_task = asyncio.create_task(self.run_reminders())
-		await asyncio.create_task(self.send_reminders())
+
+		self.reminder_timer = Timer(self.wait_until_ready, self.send_reminders)
+		await self.reminder_timer.start()
+
+		if self.reminder_timer.delay > 4 * 60 * 60:
+			logger.info('Sending immediate reminders')
+			asyncio.create_task(self.send_reminders())
+		else:
+			logger.info('Skipping immediate reminders')
 
 	def load_domains(self):
 
@@ -317,17 +351,6 @@ class Bot(Client):
 		else:
 			channel_id = channel.id
 		return self.__domain_by_control_channel_id.get(channel_id) or self.__domain_by_vote_channel_id.get(channel_id)
-
-	async def run_reminders(self):
-
-		ten_am_tomorrow = datetime.datetime.combine(datetime.date.today() + datetime.timedelta(days=1), datetime.time(10), tzinfo = NY_TZ)
-		delay = (ten_am_tomorrow - datetime.datetime.now(NY_TZ)).total_seconds()
-		logger.info(f'Waiting for {delay} seconds')
-		await asyncio.sleep(delay)
-		logger.info('Finished waiting')
-		await self.wait_until_ready()
-		await self.send_reminders()
-		self.reminder_task = asyncio.create_task(self.run_reminders())
 
 	async def on_message(self, message: Message):
 

@@ -8,6 +8,7 @@ import dataclasses
 import datetime
 import logging
 import pathlib
+import os
 import sys
 
 from bs4 import BeautifulSoup
@@ -123,16 +124,19 @@ class Domain:
 	announce_channel: TextChannel
 	event_channel: VoiceChannel
 	member_role: Role
-	events_path: pathlib.Path = dataclasses.field(init=False)
-	events_dir: dataclasses.InitVar[pathlib.Path]
+	data_dir: pathlib.Path
 
-	def __post_init__(self, events_dir: pathlib.Path):
-		self.events_path = events_dir / f'events-{self.name}.txt'
-
+	def __post_init__(self):
+		self.data_dir = self.data_dir / self.name
+		os.makedirs(self.data_dir, mode=0o755, exist_ok=True)
 		try:
 			open(self.events_path, 'x').close()
 		except FileExistsError:
 			pass
+
+	@property
+	def events_path(self):
+		return self.data_dir / f'events.txt'
 
 	async def handle_command(self, message: Message):
 		"""Processes a command in the control channel"""
@@ -240,14 +244,14 @@ class Bot(Client):
 	def __init__(
 		self,
 		domains_cfg: dict[str,dict],
-		events_dir: pathlib.Path,
+		data_dir: pathlib.Path,
 	):
 		intents = Intents.default()
 		intents.message_content = True
 		super().__init__(intents = intents)
 
 		self.__domains_cfg = domains_cfg
-		self.__events_dir = events_dir
+		self.__data_dir = data_dir
 
 		self.domains: list[Domain] = []
 		self.__domain_by_vote_channel_id: dict[int,Domain] = {}
@@ -343,7 +347,7 @@ class Bot(Client):
 		if member_role.guild != guild:
 			raise RuntimeError(f'Specified member role is not part of the Guild.')
 
-		return Domain(name, guild, control_channel, vote_channel, announce_channel, event_channel, member_role, self.__events_dir)
+		return Domain(name, guild, control_channel, vote_channel, announce_channel, event_channel, member_role, self.__data_dir)
 
 	def resolve_domain(self, channel: TextChannel | int) -> Domain | None:
 		if isinstance(channel, int):

@@ -15,26 +15,26 @@ from .commands import SlashBallot, BookSession
 @click.option('--logdir', 'logs_dir', envvar='TSAYBOT_LOGS_DIR', type=click.Path(
 	file_okay=False, writable=True, executable=True, resolve_path=True, path_type=pathlib.Path
 ))
-@click.option('--eventdir', 'events_dir', envvar='TSAYBOT_EVENTS_DIR', type=click.Path(
+@click.option('--eventdir', 'data_dir', envvar='TSAYBOT_DATA_DIR', type=click.Path(
 	file_okay=False, writable=True, executable=True, resolve_path=True, path_type=pathlib.Path
 ))
 def main(
 	config_file: io.BufferedReader,
 	token_file: io.TextIOWrapper|None,
 	logs_dir: pathlib.Path|None,
-	events_dir: pathlib.Path|None
+	data_dir: pathlib.Path|None
 ):
 
 	config = tomllib.load(config_file)
 	paths_cfg = config.get('paths', {})
-	events_dir = events_dir or pathlib.Path(paths_cfg.get('events_dir') or './events')
+	data_dir = data_dir or pathlib.Path(paths_cfg.get('data_dir') or './data')
 	logs_dir = logs_dir or pathlib.Path(paths_cfg.get('logs_dir') or './logs')
-	os.makedirs(events_dir, mode=0o755, exist_ok=True)
+	os.makedirs(data_dir, mode=0o755, exist_ok=True)
 	os.makedirs(logs_dir, mode=0o755, exist_ok=True)
 
 	bot = Bot(
 		config.get('domains', {}),
-		events_dir,
+		data_dir,
 	)
 
 	log_handler = logging.FileHandler(logs_dir / 'discord.log')	# Logs exclusively emitted by the discord.py library

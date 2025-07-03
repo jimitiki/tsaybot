@@ -7,6 +7,7 @@ import aiohttp
 import asyncio
 import dataclasses
 import datetime
+import json
 import logging
 import pathlib
 import os
@@ -93,13 +94,12 @@ class Session:
 	title: str
 	reminder_count: int
 
-	def tostr(self) -> str:
-		return f'{self.id},{self.title},{self.reminder_count}'
+	def todict(self) -> dict:
+		return {'id': self.id, 'film_title': self.title, 'reminder_count': self.reminder_count}
 
 	@classmethod
-	def fromstr(cls, s: str) -> Self:
-		id, title, reminder_count = s.split(',')
-		return cls(id, title, int(reminder_count))
+	def fromdict(cls, d: dict) -> Self:
+		return cls(d['id'], d['film_title'], d['reminder_count'])
 
 	def replace(self, **changes):
 		return dataclasses.replace(self, **changes)
@@ -148,13 +148,16 @@ class Domain:
 		self.data_dir = self.data_dir / self.name
 		os.makedirs(self.data_dir, mode=0o755, exist_ok=True)
 		try:
-			open(self.events_path, 'x').close()
+			events_file = open(self.events_path, 'x')
 		except FileExistsError:
 			pass
+		else:
+			json.dump([], events_file)
+			events_file.close()
 
 	@property
 	def events_path(self):
-		return self.data_dir / f'events.txt'
+		return self.data_dir / f'events.json'
 
 	async def handle_command(self, message: Message):
 		"""Processes a command in the control channel"""
@@ -212,11 +215,9 @@ class Domain:
 				for event in sessions
 			]
 
-		events_updated = await asyncio.gather(*tasks)
+		updated_sessions = await asyncio.gather(*tasks)
 		with open(self.events_path, 'w') as events_file:
-			for event in events_updated:
-				if event:
-					print(event.tostr(), file=events_file)
+			json.dump([session.todict() for session in updated_sessions if session], events_file)
 		logger.info('Reminders completed')
 
 	async def remind_event(self, session) -> Session | None:
@@ -254,12 +255,17 @@ class Domain:
 			logger.debug(f'Skipping event at {start_time.isoformat()}')
 			return session
 
-	def read_sessions(self):
-		with open(self.events_path) as events_file:
-			return [
-				Session.fromstr(line.strip())
-				for line in events_file.readlines()
-			]
+	def read_sessions(self) -> list[Session]:
+		try:
+			events_file = open(self.events_path)
+		except FileNotFoundError:
+			return []
+		events = json.load(events_file)
+		events_file.close()
+		return [
+			Session.fromdict(event)
+			for event in events
+		]
 
 class Bot(Client):
 

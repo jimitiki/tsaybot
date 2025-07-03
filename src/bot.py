@@ -20,7 +20,6 @@ from discord import (
 	Guild,
 	Intents,
 	Message,
-	NotFound,
 	PrivacyLevel,
 	Role,
 	TextChannel,
@@ -222,9 +221,8 @@ class Domain:
 
 	async def remind_event(self, session) -> Session | None:
 
-		try:
-			event = await self.guild.fetch_scheduled_event(int(session.id))
-		except NotFound:
+		event = self.guild.get_scheduled_event(int(session.id))
+		if event is None:
 			logger.warning(f'Failed to find scheduled event with id {session.id} ({session.title})')
 			return None
 		if event.status is not EventStatus.scheduled:

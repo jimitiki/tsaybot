@@ -163,6 +163,9 @@ cython_debug/
 
 # Local files
 data/
+logs/
+.vscode/
+.DS_Store
 *.txt
 !requirements.txt
 *.toml

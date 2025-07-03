@@ -236,14 +236,16 @@ class Domain:
 		time_remaining = start_time - datetime.datetime.now(NY_TZ)
 		logger.info(f'Event with ID {session.id} at {start_time.isoformat()} in {time_remaining.days} days')
 
-		# Reminder on the day of the event
-		if time_remaining.days == 0:
+		if time_remaining.days < 0:
+			logger.info(f'Skipping event with ID {session.id} because it is scheduled for a previous day.')
+			return None
+
+		elif time_remaining.days == 0:
 			logger.info(f'Announcing day-of reminder for event with ID {session.id} at {start_time.isoformat()}')
 			await self.announce_channel.send(f'<@&{self.member_role.id}> We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {session.title}.')
 			return None
 
-		# Reminder 2 (or 1) day(s) before the event
-		if time_remaining.days <= 2 and session.reminder_count >= 2:
+		elif time_remaining.days <= 2 and session.reminder_count >= 2:
 			logger.info(f'Announcing 2-day reminder for event with ID {session.id} at {start_time.isoformat()}')
 			await self.announce_channel.send(f'<@&{self.member_role.id}> We will be meeting on {start_time.strftime('%A')} to discuss {session.title}.')
 			return session.replace(reminder_count=1)

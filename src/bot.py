@@ -230,7 +230,7 @@ class Domain:
 			return None
 		if not event.channel or event.channel != self.event_channel:
 			logger.debug(f'Skipping event with ID {session.id} that is not for the voice channel')
-			return session
+			return None
 
 		start_time = event.start_time.astimezone(NY_TZ)
 		time_remaining = start_time - datetime.datetime.now(NY_TZ)

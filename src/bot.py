@@ -281,9 +281,7 @@ class Bot(Client):
 		self.__domains_cfg = domains_cfg
 		self.__data_dir = data_dir
 
-		self.domains: list[Domain] = []
-		self.__domain_by_vote_channel_id: dict[int,Domain] = {}
-		self.__domain_by_control_channel_id: dict[int,Domain] = {}
+		self.domains: dict[int,Domain] = {}
 
 		self.reminder_timer: Timer | None = None
 
@@ -310,26 +308,20 @@ class Bot(Client):
 
 	def load_domains(self):
 
-		self.domains = [
+		domains = [
 			self.load_domain(name, cfg)
 			for name, cfg in self.__domains_cfg.items()
 		]
 
-		domains_by_channel = defaultdict(set)
-		for domain in self.domains:
-			domains_by_channel[domain.vote_channel].add(domain.name)
-			domains_by_channel[domain.control_channel].add(domain.name)
-		for channel_id, domains in domains_by_channel.items():
-			if len(domains) > 1:
-				raise RuntimeError(f"The following domains use the same channel ({channel_id}) as a voting and/or control channel: {', '.join(domains)}")
-
-		self.__domain_by_control_channel_id = {
-			domain.control_channel.id: domain
-			for domain in self.domains
-		}
-		self.__domain_by_vote_channel_id = {
-			domain.vote_channel.id: domain
-			for domain in self.domains
+		domains_by_guild = defaultdict(set)
+		for domain in domains:
+			domains_by_guild[domain.guild.id].add(domain.name)
+		if any(len(guild_domains) > 1 for guild_domains in domains_by_guild.values()):
+			raise RuntimeError(f'''Each Discord server may only have a single domain. The following servers have multiple domains:
+{'\n  -'.join(f'{guild}: {", ".join(guild_domains)}' for guild, guild_domains in domains_by_guild if len(domains_by_guild) > 1)}''')
+		self.domains = {
+			domain.guild.id: domain
+			for domain in domains
 		}
 
 	def load_domain(self, name: str, cfg: dict[str,int]):
@@ -377,16 +369,16 @@ class Bot(Client):
 
 		return Domain(name, guild, control_channel, vote_channel, announce_channel, event_channel, member_role, self.__data_dir)
 
-	def resolve_domain(self, channel: TextChannel | int) -> Domain | None:
-		if isinstance(channel, int):
-			channel_id = channel
-		else:
-			channel_id = channel.id
-		return self.__domain_by_control_channel_id.get(channel_id) or self.__domain_by_vote_channel_id.get(channel_id)
+	def resolve_domain(self, guild: int | Guild | None) -> Domain | None:
+		if not guild:
+			return None
+		if isinstance(guild, Guild):
+			guild = guild.id
+		return self.domains.get(guild)
 
 	async def on_message(self, message: Message):
 
-		domain = self.resolve_domain(message.channel.id)
+		domain = self.resolve_domain(message.guild)
 		if not domain:
 			return
 		if self.user not in message.mentions:
@@ -398,5 +390,5 @@ class Bot(Client):
 
 		logger.info('Sending reminders')
 		async with asyncio.TaskGroup() as tg:
-			for domain in self.domains:
+			for domain in self.domains.values():
 				tg.create_task(domain.send_reminders())

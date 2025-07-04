@@ -51,7 +51,8 @@ class SlashBallot(Command):
 
 	async def create_ballot(self, interaction: Interaction):
 		logger.info(f'Recieved /ballot command. User: {interaction.user.id}; Channel: {interaction.channel_id}')
-		if not interaction.channel_id or not self.client.resolve_domain(interaction.channel_id):
+		domain = self.client.resolve_domain(interaction.guild_id)
+		if not domain or interaction.channel_id != domain.vote_channel.id:
 			logger.info(f'/ballot command is not in voting channel')
 			await interaction.response.send_message("/ballot cannot be used in this channel.", ephemeral=True)
 		else:
@@ -95,10 +96,12 @@ class BookSession(Command):
 	async def close_poll(self, interaction: Interaction, message: Message):
 
 		logger.info(f"Recieved 'End Voting' context menu command. Message: {message.id}; Channel: {message.channel.id}")
-		domain = self.client.resolve_domain(message.channel.id)
-		if not domain:
+		domain = self.client.resolve_domain(interaction.guild_id)
+		if not domain or interaction.channel_id != domain.vote_channel.id:
 			asyncio.create_task(interaction.response.send_message("This is not a valid channel for this interaction.", ephemeral=True))
 			return
+		if message.author != self.client.user:
+			asyncio.create_task(interaction.response.send_message("This is not a real ballot.", ephemeral=True))
 		message = await domain.vote_channel.fetch_message(message.id)		# Unfortunately, the message that Discord sends does not include the poll results.
 		try:
 			url, title = self.get_winner(ballot_text=message.content, poll=message.poll)

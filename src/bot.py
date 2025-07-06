@@ -1,5 +1,5 @@
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from types import CoroutineType
 from typing import Self
 from zoneinfo import ZoneInfo
@@ -204,8 +204,8 @@ class Domain:
 			f'<@&{self.member_role.id}> You are all cordially invited to [a club meeting]({event.url}) on {event.start_time.strftime('%A, %B %e')} to discuss {info.title}. As always, attendance is optional.'
 		)
 
-		with open(self.events_path, 'a') as events_file:
-			print(f'{event.id},{info.title},2', file=events_file)
+		events = self.read_sessions() + [Session(event.id, info.title, 2)]
+		self.write_sessions(events)
 
 	async def send_reminders(self):
 		sessions = self.read_sessions()
@@ -216,8 +216,7 @@ class Domain:
 			]
 
 		updated_sessions = await asyncio.gather(*tasks)
-		with open(self.events_path, 'w') as events_file:
-			json.dump([session.todict() for session in updated_sessions if session], events_file)
+		self.write_sessions(updated_sessions)
 		logger.info('Reminders completed')
 
 	async def remind_event(self, session) -> Session | None:
@@ -266,6 +265,10 @@ class Domain:
 			Session.fromdict(event)
 			for event in events
 		]
+
+	def write_sessions(self, sessions: Sequence[Session | None]):
+		with open(self.events_path, 'w') as events_file:
+			json.dump([session.todict() for session in sessions if session], events_file)
 
 class Bot(Client):
 

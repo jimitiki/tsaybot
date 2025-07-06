@@ -23,6 +23,7 @@ from discord import (
 	Message,
 	PrivacyLevel,
 	Role,
+	ScheduledEvent,
 	TextChannel,
 	VoiceChannel,
 )
@@ -270,6 +271,20 @@ class Domain:
 		with open(self.events_path, 'w') as events_file:
 			json.dump([session.todict() for session in sessions if session], events_file)
 
+	async def handle_updated_event(self, before: ScheduledEvent, after: ScheduledEvent):
+
+		sessions = self.read_sessions()
+		session = {
+			session.id: session for session in sessions
+		}.get(after.id)
+		if not session:
+			return
+
+		if before.start_time != after.start_time:
+			await self.announce_channel.send(f'<@&{self.member_role.id}> The upcoming session to discuss {session.title} has been rescheduled to {after.start_time.strftime('%A, %B %e')}.')		
+		session.reminder_count = 2
+		self.write_sessions(sessions)
+
 class Bot(Client):
 
 	def __init__(
@@ -388,6 +403,17 @@ class Bot(Client):
 			logger.info('Skipping message that does not @ mention bot')
 			return
 		await domain.handle_command(message)
+
+	async def on_scheduled_event_update(self, before: ScheduledEvent, after: ScheduledEvent):
+
+		domain = self.resolve_domain(after.guild)
+		if not domain:
+			return
+		if before.channel_id != after.channel_id:
+			return
+		if after.channel_id != domain.event_channel.id:
+			return
+		await domain.handle_updated_event(before, after)
 
 	async def send_reminders(self):
 

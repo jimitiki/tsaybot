@@ -105,6 +105,39 @@ class Session:
 	def replace(self, **changes):
 		return dataclasses.replace(self, **changes)
 
+@dataclasses.dataclass
+class ClubMember:
+
+	id: int
+	given_name: str
+	surname: str
+	dob: datetime.date | None
+
+	@classmethod
+	def fromdict(cls, d: dict) -> Self:
+		dob_iso = d.get('dob')
+		dob = None if not dob_iso else datetime.date.fromisoformat(dob_iso)
+		return cls(
+			id = d['id'],
+			given_name = d['given_name'],
+			surname = d['surname'],
+			dob = dob,
+		)
+
+	def todict(self) -> dict:
+		return {
+			'id': self.id,
+			'given_name': self.given_name,
+			'surname': self.surname,
+			'dob': self.dob,
+		}
+
+	def is_birthday(self, tz: datetime._TzInfo) -> bool:
+		if not self.dob:
+			return False
+		today = datetime.datetime.now(tz).date()
+		return (today.month, today.day) == (self.dob.month, self.dob.day)
+
 class Timer:
 
 	def __init__(self, wait: Callable[[], CoroutineType] | None, callback: Callable[[], CoroutineType], repeat: bool = True):
@@ -156,9 +189,21 @@ class Domain:
 			json.dump([], events_file)
 			events_file.close()
 
+		try:
+			members_file = open(self.members_path, 'x')
+		except FileExistsError:
+			pass
+		else:
+			json.dump([], members_file)
+			members_file.close()
+
 	@property
 	def events_path(self):
-		return self.data_dir / f'events.json'
+		return self.data_dir / 'events.json'
+
+	@property
+	def members_path(self):
+		return self.data_dir / 'members.json'
 
 	async def handle_command(self, message: Message):
 		"""Processes a command in the control channel"""
@@ -284,6 +329,22 @@ class Domain:
 	def write_sessions(self, sessions: Iterable[Session]):
 		with open(self.events_path, 'w') as events_file:
 			json.dump([session.todict() for session in sessions if session], events_file)
+
+	def read_members(self) -> list[ClubMember]:
+		try:
+			members_file = open(self.members_path)
+		except FileNotFoundError:
+			return []
+		members = json.load(members_file)
+		members_file.close()
+		return [
+			ClubMember.fromdict(member)
+			for member in members
+		]
+	
+	def write_members(self, members: Iterable[ClubMember | None]):
+		with open(self.members_path, 'w') as members_file:
+			json.dump([member.todict() for member in members if member], members_file)
 
 	async def handle_updated_event(self, before: ScheduledEvent, after: ScheduledEvent):
 

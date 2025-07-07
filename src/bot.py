@@ -1,5 +1,5 @@
 from collections import defaultdict
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable
 from types import CoroutineType
 from typing import Self
 from zoneinfo import ZoneInfo
@@ -210,9 +210,20 @@ class Domain:
 
 	async def announce(self):
 		async with asyncio.TaskGroup() as tg:
-			tg.create_task(self.announce_events())
+			event_task = tg.create_task(self.announce_events())
+		announcements = event_task.result()
+		if len(announcements) == 1:
+			await self.announce_channel.send(
+				f'<@&{self.member_role.id}> {announcements[0]}'
+			)
+		elif announcements:
+			await self.announce_channel.send(
+				f'<@&{self.member_role.id}> I have some announcements to make:\n'
+				+ '\n'.join(f"- {announcement}" for announcement in announcements)
+			)
+		logger.info(f'Finished making {len(announcements)} announcements')
 
-	async def announce_events(self):
+	async def announce_events(self) -> list[str]:
 		sessions = self.read_sessions()
 		async with asyncio.TaskGroup() as tg:
 			tasks = [
@@ -220,22 +231,23 @@ class Domain:
 				for event in sessions
 			]
 
-		updated_sessions = await asyncio.gather(*tasks)
-		self.write_sessions(updated_sessions)
+		results = await asyncio.gather(*tasks)
+		self.write_sessions([result[0] for result in results if result[0]])
 		logger.info('Reminders completed')
+		return [result[1] for result in results if result[1]]
 
-	async def announce_event(self, session) -> Session | None:
+	async def announce_event(self, session: Session) -> tuple[Session|None,str|None]:
 
 		event = self.guild.get_scheduled_event(int(session.id))
 		if event is None:
 			logger.warning(f'Failed to find scheduled event with id {session.id} ({session.title})')
-			return None
+			return None, None
 		if event.status is not EventStatus.scheduled:
 			logger.debug(f'Skipping event with ID {session.id} due to its status: {event.status}')
-			return None
+			return None, None
 		if not event.channel or event.channel != self.event_channel:
 			logger.debug(f'Skipping event with ID {session.id} that is not for the voice channel')
-			return None
+			return None, None
 
 		start_time = event.start_time.astimezone(NY_TZ)
 		time_remaining = start_time - datetime.datetime.now(NY_TZ)
@@ -243,21 +255,19 @@ class Domain:
 
 		if time_remaining.days < 0:
 			logger.info(f'Skipping event with ID {session.id} because it is scheduled for a previous day.')
-			return None
+			return None, None
 
 		elif time_remaining.days == 0:
 			logger.info(f'Announcing day-of reminder for event with ID {session.id} at {start_time.isoformat()}')
-			await self.announce_channel.send(f'<@&{self.member_role.id}> We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {session.title}.')
-			return None
+			return None, f'We are meeting tonight at 10:00 Eastern (7:00 Pacific) to discuss {session.title}.'
 
 		elif time_remaining.days <= 2 and session.reminder_count >= 2:
 			logger.info(f'Announcing 2-day reminder for event with ID {session.id} at {start_time.isoformat()}')
-			await self.announce_channel.send(f'<@&{self.member_role.id}> We will be meeting on {start_time.strftime('%A')} to discuss {session.title}.')
-			return session.replace(reminder_count=1)
+			return session.replace(reminder_count=1), f'We will be meeting on {start_time.strftime('%A')} to discuss {session.title}.'
 
 		else:
 			logger.debug(f'Skipping event at {start_time.isoformat()}')
-			return session
+			return session, None
 
 	def read_sessions(self) -> list[Session]:
 		try:
@@ -271,7 +281,7 @@ class Domain:
 			for event in events
 		]
 
-	def write_sessions(self, sessions: Sequence[Session | None]):
+	def write_sessions(self, sessions: Iterable[Session]):
 		with open(self.events_path, 'w') as events_file:
 			json.dump([session.todict() for session in sessions if session], events_file)
 
@@ -424,4 +434,4 @@ class Bot(Client):
 		logger.info('Sending reminders')
 		async with asyncio.TaskGroup() as tg:
 			for domain in self.domains.values():
-				tg.create_task(domain.send_reminders())
+				tg.create_task(domain.announce())

@@ -132,7 +132,7 @@ class ClubMember:
 			'dob': self.dob,
 		}
 
-	def is_birthday(self, tz: datetime._TzInfo) -> bool:
+	def is_birthday(self, tz: datetime.tzinfo) -> bool:
 		if not self.dob:
 			return False
 		today = datetime.datetime.now(tz).date()
@@ -256,7 +256,8 @@ class Domain:
 	async def announce(self):
 		async with asyncio.TaskGroup() as tg:
 			event_task = tg.create_task(self.announce_events())
-		announcements = event_task.result()
+			birthday_task = tg.create_task(self.announce_birthdays())
+		announcements = event_task.result() + birthday_task.result()
 		if len(announcements) == 1:
 			await self.announce_channel.send(
 				f'<@&{self.member_role.id}> {announcements[0]}'
@@ -313,6 +314,20 @@ class Domain:
 		else:
 			logger.debug(f'Skipping event at {start_time.isoformat()}')
 			return session, None
+
+	async def announce_birthdays(self) -> list[str]:
+		members = self.read_members()
+		async with asyncio.TaskGroup() as tg:
+			tasks = [
+				tg.create_task(self.announce_birthday(member))
+				for member in members
+				if member.is_birthday(NY_TZ)
+			]
+		logger.info('Birthday announcements finished')
+		return [task.result() for task in tasks]
+
+	async def announce_birthday(self, member: ClubMember) -> str:
+		return f"Today is {member.given_name} {member.surname}'s birthday. Please send your birthday wishes at the earliest possible convenience."
 
 	def read_sessions(self) -> list[Session]:
 		try:

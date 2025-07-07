@@ -208,11 +208,15 @@ class Domain:
 		events = self.read_sessions() + [Session(event.id, info.title, 2)]
 		self.write_sessions(events)
 
-	async def send_reminders(self):
+	async def announce(self):
+		async with asyncio.TaskGroup() as tg:
+			tg.create_task(self.announce_events())
+
+	async def announce_events(self):
 		sessions = self.read_sessions()
 		async with asyncio.TaskGroup() as tg:
 			tasks = [
-				tg.create_task(self.remind_event(event))
+				tg.create_task(self.announce_event(event))
 				for event in sessions
 			]
 
@@ -220,7 +224,7 @@ class Domain:
 		self.write_sessions(updated_sessions)
 		logger.info('Reminders completed')
 
-	async def remind_event(self, session) -> Session | None:
+	async def announce_event(self, session) -> Session | None:
 
 		event = self.guild.get_scheduled_event(int(session.id))
 		if event is None:
